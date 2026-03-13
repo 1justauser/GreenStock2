@@ -3,7 +3,6 @@ C:\Users\79174\source\repos\GreenStock\GreenStock\obj\Debug\net10.0-windows\Gree
 C:\Users\79174\source\repos\GreenStock\GreenStock\obj\Debug\net10.0-windows\GreenStock.AssemblyInfoInputs.cache
 C:\Users\79174\source\repos\GreenStock\GreenStock\obj\Debug\net10.0-windows\GreenStock.AssemblyInfo.cs
 C:\Users\79174\source\repos\GreenStock\GreenStock\obj\Debug\net10.0-windows\GreenStock.csproj.CoreCompileInputs.cache
-C:\Users\79174\source\repos\GreenStock\GreenStock\obj\Debug\net10.0-windows\GreenStock.sourcelink.json
 C:\Users\79174\source\repos\GreenStock\GreenStock\bin\Debug\net10.0-windows\GreenStock.exe
 C:\Users\79174\source\repos\GreenStock\GreenStock\bin\Debug\net10.0-windows\GreenStock.deps.json
 C:\Users\79174\source\repos\GreenStock\GreenStock\bin\Debug\net10.0-windows\GreenStock.runtimeconfig.json

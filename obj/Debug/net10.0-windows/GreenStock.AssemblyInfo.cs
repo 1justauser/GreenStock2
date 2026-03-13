@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("GreenStock")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+7f6cbcd44299f546c58d942e1488623607ea6614")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+1e929f37191bfc2c5261a2c96ef309de1a2b681e")]
 [assembly: System.Reflection.AssemblyProductAttribute("GreenStock")]
 [assembly: System.Reflection.AssemblyTitleAttribute("GreenStock")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
