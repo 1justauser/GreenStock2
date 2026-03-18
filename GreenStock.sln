@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 18
+VisualStudioVersion = 18.4.11605.240 stable
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GreenStock", "GreenStock.csproj", "{40CA0E1F-FAC5-BC2F-3210-49E61E6BF19F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GreenStock.Tests", "..\GreenStock.Tests\GreenStock.Tests.csproj", "{DE42B8B2-F636-42EC-94A1-9AC64D775059}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{40CA0E1F-FAC5-BC2F-3210-49E61E6BF19F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{40CA0E1F-FAC5-BC2F-3210-49E61E6BF19F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{40CA0E1F-FAC5-BC2F-3210-49E61E6BF19F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{40CA0E1F-FAC5-BC2F-3210-49E61E6BF19F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DE42B8B2-F636-42EC-94A1-9AC64D775059}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DE42B8B2-F636-42EC-94A1-9AC64D775059}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DE42B8B2-F636-42EC-94A1-9AC64D775059}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DE42B8B2-F636-42EC-94A1-9AC64D775059}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {B3DFB63B-14AA-403E-9939-B4D9EB9E2F02}
+	EndGlobalSection
+EndGlobal
