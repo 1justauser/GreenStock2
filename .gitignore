@@ -1,0 +1,26 @@
+﻿# Build results
+bin/
+obj/
+.vs/
+
+# Dependencies
+packages/
+*.lock.json
+
+# IDE
+.vscode/
+*.user
+*.suo
+.DS_Store
+
+# Runtime
+*.exe
+*.dll
+*.pdb
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local files
+*.log
