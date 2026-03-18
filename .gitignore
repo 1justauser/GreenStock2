@@ -1,4 +1,8 @@
+<<<<<<< добавление-тестов
+﻿# Build results
+=======
 # Build results
+>>>>>>> master
 bin/
 obj/
 .vs/
@@ -17,3 +21,13 @@ packages/
 *.exe
 *.dll
 *.pdb
+<<<<<<< добавление-тестов
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local files
+*.log
+=======
+>>>>>>> master
