@@ -14,7 +14,7 @@ namespace GreenStock.Forms
         private readonly User _currentUser;
 
         private MenuStrip         menuStrip;
-        private ToolStripMenuItem menuCatalog, menuShipments, menuHistory, menuExit;
+        private ToolStripMenuItem menuCatalog, menuCategories, menuShipments, menuHistory, menuExit;
         private Label             lblSearch, lblCategory;
         private TextBox           txtSearch;
         private ComboBox          cmbCategory;
@@ -33,24 +33,27 @@ namespace GreenStock.Forms
 
         private void InitializeComponent()
         {
-            this.Text        = $"Каталог товаров — {_currentUser.Login} ({_currentUser.Role})";
+            this.Text          = $"Каталог товаров — {_currentUser.Login} ({_currentUser.Role})";
             this.StartPosition = FormStartPosition.CenterScreen;
-            this.BackColor   = Color.White;
-            this.WindowState = FormWindowState.Maximized;
-            this.Size        = new Size(1200, 700);
+            this.BackColor     = Color.White;
+            this.WindowState   = FormWindowState.Maximized;
+            this.Size          = new Size(1200, 700);
 
             // ── MenuStrip ─────────────────────────────────────
-            menuStrip     = new MenuStrip { BackColor = Color.FromArgb(28, 42, 74), ForeColor = Color.White, Font = new Font("Segoe UI", 11) };
-            menuCatalog   = new ToolStripMenuItem("Каталог")  { ForeColor = Color.White };
-            menuShipments = new ToolStripMenuItem("Отгрузки") { ForeColor = Color.White };
-            menuHistory   = new ToolStripMenuItem("История")  { ForeColor = Color.White };
-            menuExit      = new ToolStripMenuItem("Выйти")    { ForeColor = Color.White };
+            menuStrip      = new MenuStrip { BackColor = Color.FromArgb(28, 42, 74), ForeColor = Color.White, Font = new Font("Segoe UI", 11) };
+            menuCatalog    = new ToolStripMenuItem("Каталог")   { ForeColor = Color.White };
+            menuCategories = new ToolStripMenuItem("Категории") { ForeColor = Color.White };
+            menuShipments  = new ToolStripMenuItem("Отгрузки")  { ForeColor = Color.White };
+            menuHistory    = new ToolStripMenuItem("История")   { ForeColor = Color.White };
+            menuExit       = new ToolStripMenuItem("Выйти")     { ForeColor = Color.White };
 
-            menuShipments.Click += (s, e) => OpenShipmentForm();
-            menuHistory.Click   += (s, e) => OpenHistoryForm();
-            menuExit.Click      += (s, e) => this.Close();
+            menuCategories.Click += (s, e) => OpenCategoryForm();
+            menuShipments.Click  += (s, e) => OpenShipmentForm();
+            menuHistory.Click    += (s, e) => OpenHistoryForm();
+            menuExit.Click       += (s, e) => this.Close();
 
-            menuStrip.Items.AddRange(new ToolStripItem[] { menuCatalog, menuShipments, menuHistory, menuExit });
+            menuStrip.Items.AddRange(new ToolStripItem[]
+                { menuCatalog, menuCategories, menuShipments, menuHistory, menuExit });
             this.MainMenuStrip = menuStrip;
 
             // ── Search row ────────────────────────────────────
@@ -100,7 +103,11 @@ namespace GreenStock.Forms
 
             lblCount = new Label { Text = "всего позиций: 0", Font = new Font("Segoe UI", 9), ForeColor = Color.Gray, AutoSize = true, Location = new Point(14, 635), Anchor = AnchorStyles.Bottom | AnchorStyles.Left };
 
-            this.Controls.AddRange(new Control[] { menuStrip, lblSearch, txtSearch, lblCategory, cmbCategory, btnAdd, btnEdit, btnDelete, lblAdminOnly, dgvProducts, lblCount });
+            this.Controls.AddRange(new Control[]
+            {
+                menuStrip, lblSearch, txtSearch, lblCategory, cmbCategory,
+                btnAdd, btnEdit, btnDelete, lblAdminOnly, dgvProducts, lblCount
+            });
         }
 
         private void ApplyRolePermissions()
@@ -108,12 +115,17 @@ namespace GreenStock.Forms
             bool isAdmin = _currentUser.Role == "Admin";
             bool isKlad  = _currentUser.Role == "Kladovshik";
 
+            // Admin menu: Каталог | Категории | История | Выйти
+            menuCategories.Visible = isAdmin;
+            menuHistory.Visible    = isAdmin;
+
+            // Кладовщик menu: Каталог | Отгрузки | Выйти
+            menuShipments.Visible  = isKlad;
+
             btnAdd.Enabled       = isAdmin;
             btnEdit.Enabled      = isAdmin;
             btnDelete.Enabled    = isAdmin;
             lblAdminOnly.Visible = isKlad;
-            menuShipments.Visible= isKlad;
-            menuHistory.Visible  = isAdmin;
         }
 
         private List<Product> _allProducts = new();
@@ -145,7 +157,9 @@ namespace GreenStock.Forms
 
             var filtered = _allProducts.AsEnumerable();
             if (!string.IsNullOrEmpty(search))
-                filtered = filtered.Where(p => p.Article.ToLower().Contains(search) || p.Name.ToLower().Contains(search));
+                filtered = filtered.Where(p =>
+                    p.Article.ToLower().Contains(search) ||
+                    p.Name.ToLower().Contains(search));
             if (category != "Все")
                 filtered = filtered.Where(p => p.Category.Name == category);
 
@@ -158,14 +172,20 @@ namespace GreenStock.Forms
                 Ед_изм        = p.Unit,
                 Цена_руб      = p.PurchasePrice,
                 Остаток       = p.Stock,
-                Срок_годности = p.ExpiryDate.HasValue ? p.ExpiryDate.Value.ToString("dd.MM.yyyy") : "Бессрочно",
-                _Id           = p.Id
+                Срок_годности = p.ExpiryDate.HasValue
+                    ? p.ExpiryDate.Value.ToString("dd.MM.yyyy")
+                    : "Бессрочно",
+                _Id = p.Id
             }).ToList();
 
-            if (dgvProducts.Columns.Contains("_Id"))           dgvProducts.Columns["_Id"]!.Visible = false;
-            if (dgvProducts.Columns.Contains("Ед_изм"))        dgvProducts.Columns["Ед_изм"]!.HeaderText = "Ед. изм.";
-            if (dgvProducts.Columns.Contains("Цена_руб"))      dgvProducts.Columns["Цена_руб"]!.HeaderText = "Цена (руб.)";
-            if (dgvProducts.Columns.Contains("Срок_годности")) dgvProducts.Columns["Срок_годности"]!.HeaderText = "Срок годности";
+            if (dgvProducts.Columns.Contains("_Id"))
+                dgvProducts.Columns["_Id"]!.Visible = false;
+            if (dgvProducts.Columns.Contains("Ед_изм"))
+                dgvProducts.Columns["Ед_изм"]!.HeaderText = "Ед. изм.";
+            if (dgvProducts.Columns.Contains("Цена_руб"))
+                dgvProducts.Columns["Цена_руб"]!.HeaderText = "Цена (руб.)";
+            if (dgvProducts.Columns.Contains("Срок_годности"))
+                dgvProducts.Columns["Срок_годности"]!.HeaderText = "Срок годности";
 
             lblCount.Text = $"всего позиций: {list.Count}";
         }
@@ -200,8 +220,15 @@ namespace GreenStock.Forms
             using var db = new AppDbContext();
             var product = db.Products.FirstOrDefault(p => p.Id == id);
             if (product == null) return;
-            if (MessageBox.Show($"Удалить [{product.Name}]?\nЭто действие нельзя отменить.", "Подтверждение", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes)
+            var dlg = new DeleteConfirmForm($"{product.Article} — {product.Name}");
+            if (dlg.ShowDialog() == DialogResult.Yes)
             { db.Products.Remove(product); db.SaveChanges(); LoadData(); }
+        }
+
+        private void OpenCategoryForm()
+        {
+            new CategoryForm().ShowDialog();
+            LoadData();
         }
 
         private void OpenShipmentForm() { new ShipmentForm(_currentUser).ShowDialog(); LoadData(); }
