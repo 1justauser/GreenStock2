@@ -23,17 +23,16 @@ namespace GreenStock.Forms
         }
         private readonly List<ShipmentRow> _rows = new();
 
-        private Label          lblRecipient;
-        private TextBox        txtRecipient;
-        private TabControl     tabControl;
-        private TabPage        tabAdd;
-        private Label          lblProduct, lblQty, lblAvailableLabel, lblAvailableValue;
-        private ComboBox       cmbProduct;
-        private NumericUpDown  nudQty;
-        private Button         btnAddRow;
-        private DataGridView   dgvItems;
-        private Button         btnConfirm, btnCancel;
-        private Label          lblWarning;
+        private Label         lblRecipient, lblRecipientError;
+        private TextBox       txtRecipient;
+        private GroupBox      grpAdd;
+        private Label         lblProduct, lblQty, lblAvailableLabel, lblAvailableValue;
+        private ComboBox      cmbProduct;
+        private NumericUpDown nudQty;
+        private Button        btnAddRow;
+        private DataGridView  dgvItems;
+        private Label         lblWarning;
+        private Button        btnConfirm, btnCancel;
 
         public ShipmentForm(User currentUser)
         {
@@ -44,75 +43,90 @@ namespace GreenStock.Forms
 
         private void InitializeComponent()
         {
-            var screen = Screen.PrimaryScreen!.WorkingArea;
-            int W = screen.Width  * 3 / 4;
-            int H = screen.Height * 3 / 4;
-
             this.Text            = "Новая отгрузка";
-            this.ClientSize      = new Size(W, H);
+            this.Size            = new Size(620, 500);
             this.StartPosition   = FormStartPosition.CenterParent;
-            this.FormBorderStyle = FormBorderStyle.FixedDialog;
+            this.FormBorderStyle = FormBorderStyle.FixedSingle;
             this.MaximizeBox     = false;
-            this.BackColor       = Color.White;
+            this.BackColor       = Color.FromArgb(240, 240, 245);
 
-            int fontSize = W / 80;
-            int inputW   = W / 3;
-            int fieldH   = H / 16;
+            // ── Получатель* ───────────────────────────────────
+            lblRecipient = new Label { Text = "Получатель*:", Font = new Font("Segoe UI", 10), Location = new Point(15, 20), AutoSize = true };
+            txtRecipient = new TextBox { Font = new Font("Segoe UI", 10), Location = new Point(125, 17), Size = new Size(200, 24) };
+            lblRecipientError = new Label { Text = "Поле обязательно для заполнения", Font = new Font("Segoe UI", 8), ForeColor = Color.Red, Location = new Point(125, 44), AutoSize = true, Visible = false };
 
-            // ── Получатель ────────────────────────────────────
-            lblRecipient = new Label { Text = "Получатель:", Font = new Font("Segoe UI", fontSize), Location = new Point(10, 12), AutoSize = true };
-            txtRecipient = new TextBox { Font = new Font("Segoe UI", fontSize), Location = new Point(110, 10), Size = new Size(inputW, fieldH) };
+            // ── GroupBox "добавить позицию" ───────────────────
+            grpAdd = new GroupBox { Text = "добавить позицию", Font = new Font("Segoe UI", 9), Location = new Point(10, 65), Size = new Size(585, 130), BackColor = Color.FromArgb(240, 240, 245) };
 
-            // ── TabControl ────────────────────────────────────
-            tabControl = new TabControl { Location = new Point(8, fieldH + 20), Size = new Size(W - 16, H / 3), Font = new Font("Segoe UI", fontSize) };
-            tabAdd     = new TabPage("добавить позицию");
-            tabControl.TabPages.Add(tabAdd);
-
-            lblProduct = new Label { Text = "Товар:", Font = new Font("Segoe UI", fontSize), Location = new Point(14, 20), AutoSize = true };
-            cmbProduct = new ComboBox { Font = new Font("Segoe UI", fontSize), Location = new Point(90, 17), Size = new Size(inputW, fieldH), DropDownStyle = ComboBoxStyle.DropDownList };
+            lblProduct = new Label { Text = "Товар:", Font = new Font("Segoe UI", 10), Location = new Point(15, 28), AutoSize = true };
+            cmbProduct = new ComboBox { Font = new Font("Segoe UI", 10), Location = new Point(80, 25), Size = new Size(280, 24), DropDownStyle = ComboBoxStyle.DropDownList };
             cmbProduct.SelectedIndexChanged += CmbProduct_Changed;
 
-            lblQty           = new Label { Text = "Количество:", Font = new Font("Segoe UI", fontSize), Location = new Point(14, 54), AutoSize = true };
-            nudQty           = new NumericUpDown { Font = new Font("Segoe UI", fontSize), Location = new Point(110, 51), Size = new Size(80, fieldH), Minimum = 1, Maximum = 999999, Value = 1 };
+            lblQty            = new Label { Text = "Количество:", Font = new Font("Segoe UI", 10), Location = new Point(15, 65), AutoSize = true };
+            nudQty            = new NumericUpDown { Font = new Font("Segoe UI", 10), Location = new Point(100, 62), Size = new Size(100, 24), Minimum = 1, Maximum = 999999, Value = 1 };
             nudQty.ValueChanged += (s, e) => CheckStock();
-            lblAvailableLabel = new Label { Text = "доступно на складе:", Font = new Font("Segoe UI", fontSize), Location = new Point(200, 54), AutoSize = true };
-            lblAvailableValue = new Label { Text = "—", Font = new Font("Segoe UI", fontSize, FontStyle.Bold), ForeColor = Color.FromArgb(30, 100, 30), Location = new Point(360, 54), AutoSize = true };
+            lblAvailableLabel = new Label { Text = "доступно на складе:", Font = new Font("Segoe UI", 10), Location = new Point(210, 65), AutoSize = true };
+            lblAvailableValue = new Label { Text = "", Font = new Font("Segoe UI", 10, FontStyle.Bold), ForeColor = Color.FromArgb(30, 100, 30), Location = new Point(370, 65), AutoSize = true };
 
-            btnAddRow = new Button { Text = "+ Добавить строку", Font = new Font("Segoe UI", fontSize), Location = new Point(14, 88), Size = new Size(150, 30), BackColor = Color.FromArgb(28, 42, 74), ForeColor = Color.White, FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand };
-            btnAddRow.FlatAppearance.BorderSize = 0;
+            btnAddRow = new Button { Text = "+ Добавить строку", Font = new Font("Segoe UI", 10), Location = new Point(15, 96), Size = new Size(150, 28), FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand };
+            btnAddRow.FlatAppearance.BorderColor = Color.Gray;
+            btnAddRow.FlatAppearance.BorderSize  = 1;
             btnAddRow.Click += BtnAddRow_Click;
 
-            tabAdd.Controls.AddRange(new Control[] { lblProduct, cmbProduct, lblQty, nudQty, lblAvailableLabel, lblAvailableValue, btnAddRow });
+            grpAdd.Controls.AddRange(new Control[] { lblProduct, cmbProduct, lblQty, nudQty, lblAvailableLabel, lblAvailableValue, btnAddRow });
 
-            // ── Grid ──────────────────────────────────────────
+            // ── DataGridView ──────────────────────────────────
             dgvItems = new DataGridView
             {
-                Location              = new Point(8, fieldH + 20 + H / 3 + 8),
-                Size                  = new Size(W - 16, H / 4),
+                Location              = new Point(10, 205),
+                Size                  = new Size(585, 120),
                 ReadOnly              = true,
                 AllowUserToAddRows    = false,
                 AllowUserToDeleteRows = false,
                 SelectionMode         = DataGridViewSelectionMode.FullRowSelect,
                 BackgroundColor       = Color.White,
                 AutoSizeColumnsMode   = DataGridViewAutoSizeColumnsMode.Fill,
-                Font                  = new Font("Segoe UI", fontSize)
+                Font                  = new Font("Segoe UI", 9)
             };
-            dgvItems.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(220, 230, 245);
-            dgvItems.ColumnHeadersDefaultCellStyle.Font      = new Font("Segoe UI", fontSize, FontStyle.Bold);
+            dgvItems.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(220, 230, 240);
+            dgvItems.ColumnHeadersDefaultCellStyle.Font      = new Font("Segoe UI", 9, FontStyle.Bold);
             dgvItems.EnableHeadersVisualStyles = false;
 
-            // ── Warning + Buttons ─────────────────────────────
-            int bottomY = H - H / 8;
-            lblWarning = new Label { Text = "", ForeColor = Color.Red, Font = new Font("Segoe UI", fontSize - 1), Location = new Point(8, bottomY), Size = new Size(W / 2, 20) };
+            // ── Warning ───────────────────────────────────────
+            lblWarning = new Label { Text = "", ForeColor = Color.Red, Font = new Font("Segoe UI", 9), Location = new Point(10, 332), Size = new Size(500, 18) };
 
-            btnConfirm = new Button { Text = "подтвердить отгрузку", Font = new Font("Segoe UI", fontSize, FontStyle.Bold), Location = new Point(W - W / 3 - 10, bottomY - 5), Size = new Size(W / 3, H / 12), BackColor = Color.FromArgb(28, 42, 74), ForeColor = Color.White, FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand };
+            // ── Buttons ───────────────────────────────────────
+            btnConfirm = new Button
+            {
+                Text      = "Подтвердить",
+                Font      = new Font("Segoe UI", 10, FontStyle.Bold),
+                Location  = new Point(385, 355),
+                Size      = new Size(120, 34),
+                BackColor = Color.FromArgb(28, 42, 74),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Cursor    = Cursors.Hand
+            };
             btnConfirm.FlatAppearance.BorderSize = 0;
             btnConfirm.Click += BtnConfirm_Click;
 
-            btnCancel = new Button { Text = "отмена", Font = new Font("Segoe UI", fontSize), Location = new Point(W - W / 3 - 10 + W / 3 + 8, bottomY - 5), Size = new Size(W / 8, H / 12), FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand };
+            btnCancel = new Button
+            {
+                Text      = "Отмена",
+                Font      = new Font("Segoe UI", 10),
+                Location  = new Point(515, 355),
+                Size      = new Size(80, 34),
+                FlatStyle = FlatStyle.Flat,
+                Cursor    = Cursors.Hand
+            };
             btnCancel.Click += (s, e) => { this.DialogResult = DialogResult.Cancel; this.Close(); };
 
-            this.Controls.AddRange(new Control[] { lblRecipient, txtRecipient, tabControl, dgvItems, lblWarning, btnConfirm, btnCancel });
+            this.Controls.AddRange(new Control[]
+            {
+                lblRecipient, txtRecipient, lblRecipientError,
+                grpAdd, dgvItems, lblWarning,
+                btnConfirm, btnCancel
+            });
         }
 
         private List<Product> _products = new();
@@ -132,7 +146,7 @@ namespace GreenStock.Forms
         private void CmbProduct_Changed(object? sender, EventArgs e)
         {
             var p = SelectedProduct();
-            lblAvailableValue.Text      = p != null ? $"{p.Stock} {p.Unit}" : "—";
+            lblAvailableValue.Text      = p != null ? $"{p.Stock} {p.Unit}" : "";
             lblAvailableValue.ForeColor = (p != null && p.Stock > 0) ? Color.FromArgb(30, 100, 30) : Color.Red;
             CheckStock();
         }
@@ -142,13 +156,17 @@ namespace GreenStock.Forms
             var p = SelectedProduct();
             if (p == null) return;
             lblWarning.Text = nudQty.Value <= p.Stock ? "" :
-                $"Недостаточно товара {p.Name}: запрошено {nudQty.Value}, в наличии {p.Stock}";
+                $"Недостаточно «{p.Name}»: запрошено {nudQty.Value}, в наличии {p.Stock}";
             UpdateConfirmButton();
         }
 
         private void UpdateConfirmButton()
         {
-            bool anyInvalid = _rows.Any(r => { var p = _products.FirstOrDefault(x => x.Id == r.ProductId); return p == null || r.Quantity > p.Stock; });
+            bool anyInvalid = _rows.Any(r =>
+            {
+                var p = _products.FirstOrDefault(x => x.Id == r.ProductId);
+                return p == null || r.Quantity > p.Stock;
+            });
             btnConfirm.Enabled   = _rows.Count > 0 && !anyInvalid;
             btnConfirm.BackColor = btnConfirm.Enabled ? Color.FromArgb(28, 42, 74) : Color.Gray;
         }
@@ -158,7 +176,11 @@ namespace GreenStock.Forms
             var product = SelectedProduct();
             if (product == null) return;
             int qty = (int)nudQty.Value;
-            if (qty > product.Stock) { lblWarning.Text = $"Недостаточно товара {product.Name}: запрошено {qty}, в наличии {product.Stock}"; return; }
+            if (qty > product.Stock)
+            {
+                lblWarning.Text = $"Недостаточно «{product.Name}»: запрошено {qty}, в наличии {product.Stock}";
+                return;
+            }
 
             var existing = _rows.FirstOrDefault(r => r.ProductId == product.Id);
             if (existing != null) existing.Quantity += qty;
@@ -180,14 +202,22 @@ namespace GreenStock.Forms
                 Количество         = r.Quantity,
                 Доступно_на_складе = r.Available
             }).ToList();
-            if (dgvItems.Columns.Contains("Ед_изм"))             dgvItems.Columns["Ед_изм"]!.HeaderText = "Ед. изм.";
+            if (dgvItems.Columns.Contains("Ед_изм"))             dgvItems.Columns["Ед_изм"]!.HeaderText             = "Ед. изм.";
             if (dgvItems.Columns.Contains("Доступно_на_складе")) dgvItems.Columns["Доступно_на_складе"]!.HeaderText = "Доступно на складе";
         }
 
         private void BtnConfirm_Click(object? sender, EventArgs e)
         {
+            lblRecipientError.Visible = false;
+            txtRecipient.BackColor    = Color.White;
+
+            if (string.IsNullOrWhiteSpace(txtRecipient.Text))
+            {
+                lblRecipientError.Visible = true;
+                txtRecipient.BackColor    = Color.FromArgb(255, 220, 220);
+                return;
+            }
             if (_rows.Count == 0) { lblWarning.Text = "Добавьте хотя бы одну позицию"; return; }
-            if (string.IsNullOrWhiteSpace(txtRecipient.Text)) { lblWarning.Text = "Укажите получателя"; return; }
 
             try
             {
@@ -199,13 +229,18 @@ namespace GreenStock.Forms
                     var product = db.Products.Find(row.ProductId);
                     if (product == null || row.Quantity > product.Stock)
                     {
-                        lblWarning.Text = $"Недостаточно товара {row.ProductName}: в наличии {product?.Stock ?? 0}";
+                        lblWarning.Text = $"Недостаточно «{row.ProductName}»: в наличии {product?.Stock ?? 0}";
                         tx.Rollback();
                         return;
                     }
                 }
 
-                var shipment = new Shipment { CreatedBy = _currentUser.Id, CreatedAt = DateTime.UtcNow, Recipient = txtRecipient.Text.Trim() };
+                var shipment = new Shipment
+                {
+                    CreatedBy = _currentUser.Id,
+                    CreatedAt = DateTime.UtcNow,
+                    Recipient = txtRecipient.Text.Trim()
+                };
                 db.Shipments.Add(shipment);
                 db.SaveChanges();
 

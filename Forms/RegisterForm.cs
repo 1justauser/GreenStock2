@@ -11,8 +11,8 @@ namespace GreenStock.Forms
     {
         private Label   lblLogin, lblPassword, lblConfirm, lblRole;
         private TextBox txtLogin, txtPassword, txtConfirm, txtRole;
+        private Label   lblLoginError, lblConfirmError;
         private Button  btnRegister, btnBack;
-        private Label   lblError;
 
         public string RegisteredLogin { get; private set; } = string.Empty;
 
@@ -23,94 +23,134 @@ namespace GreenStock.Forms
 
         private void InitializeComponent()
         {
-            var screen = Screen.PrimaryScreen!.WorkingArea;
-            int W = screen.Width / 2;
-            int H = screen.Height / 2;
-
             this.Text            = "Регистрация кладовщика";
-            this.ClientSize      = new Size(W, H);
+            this.Size            = new Size(430, 380);
             this.StartPosition   = FormStartPosition.CenterScreen;
             this.FormBorderStyle = FormBorderStyle.FixedSingle;
             this.MaximizeBox     = false;
-            this.BackColor       = Color.White;
+            this.BackColor       = Color.FromArgb(240, 240, 245);
 
-            int fontSize = W / 60;
-            int labelX   = W / 6;
-            int inputX   = W / 6 + W / 8 + 75;
-            int inputW   = W / 2;
-            int fieldH   = H / 14;
-            int rowH     = H / 9;
-            int startY   = H / 12;
+            int labelX = 60;
+            int inputX = 210;
+            int inputW = 165;
 
-            Label MakeLabel(string text, int row) => new Label
+            // ── Логин ─────────────────────────────────────────
+            lblLogin = new Label { Text = "Логин:", Font = new Font("Segoe UI", 11), Location = new Point(labelX, 30), AutoSize = true };
+            txtLogin = new TextBox { Font = new Font("Segoe UI", 11), Location = new Point(inputX, 27), Size = new Size(inputW, 26) };
+            lblLoginError = new Label { Text = "Логин уже занят", Font = new Font("Segoe UI", 8), ForeColor = Color.Red, Location = new Point(inputX, 56), AutoSize = true, Visible = false };
+
+            // ── Пароль ────────────────────────────────────────
+            lblPassword = new Label { Text = "Пароль:", Font = new Font("Segoe UI", 11), Location = new Point(labelX, 80), AutoSize = true };
+            txtPassword = new TextBox { Font = new Font("Segoe UI", 11), Location = new Point(inputX, 77), Size = new Size(inputW, 26), PasswordChar = '*' };
+
+            // ── Подтвердите пароль ────────────────────────────
+            lblConfirm = new Label { Text = "Подтвердите пароль:", Font = new Font("Segoe UI", 11), Location = new Point(labelX, 130), AutoSize = true };
+            txtConfirm = new TextBox { Font = new Font("Segoe UI", 11), Location = new Point(inputX, 127), Size = new Size(inputW, 26), PasswordChar = '*' };
+            lblConfirmError = new Label { Text = "Пароли не совпадают", Font = new Font("Segoe UI", 8), ForeColor = Color.Red, Location = new Point(inputX, 156), AutoSize = true, Visible = false };
+
+            // ── Роль ──────────────────────────────────────────
+            lblRole = new Label { Text = "Роль:", Font = new Font("Segoe UI", 11), Location = new Point(labelX, 185), AutoSize = true };
+            txtRole = new TextBox { Font = new Font("Segoe UI", 11), Location = new Point(inputX, 182), Size = new Size(inputW, 26), Text = "Кладовщик", ReadOnly = true, BackColor = Color.FromArgb(220, 220, 220) };
+
+            // ── Separator ─────────────────────────────────────
+            var sep = new Panel { Location = new Point(20, 230), Size = new Size(375, 1), BackColor = Color.Silver };
+
+            // ── Buttons ───────────────────────────────────────
+            btnRegister = new Button
             {
-                Text     = text,
-                Font     = new Font("Segoe UI", fontSize),
-                Location = new Point(labelX, startY + row * rowH),
-                AutoSize = true
+                Text      = "Зарегистрироваться",
+                Font      = new Font("Segoe UI", 10, FontStyle.Bold),
+                Location  = new Point(90, 255),
+                Size      = new Size(175, 34),
+                BackColor = Color.FromArgb(28, 42, 74),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Cursor    = Cursors.Hand
             };
-
-            TextBox MakeInput(int row, bool password = false) => new TextBox
-            {
-                Font         = new Font("Segoe UI", fontSize),
-                Location     = new Point(inputX, startY + row * rowH - 2),
-                Size         = new Size(inputW, fieldH),
-                BorderStyle  = BorderStyle.FixedSingle,
-                PasswordChar = password ? '*' : '\0'
-            };
-
-            lblLogin    = MakeLabel("Логин:", 0);
-            txtLogin    = MakeInput(0);
-            lblPassword = MakeLabel("Пароль:", 1);
-            txtPassword = MakeInput(1, true);
-            lblConfirm  = MakeLabel("Подтвердите:", 2);
-            txtConfirm  = MakeInput(2, true);
-            lblRole     = MakeLabel("Роль:", 3);
-            txtRole     = new TextBox { Font = new Font("Segoe UI", fontSize), Location = new Point(inputX, startY + 3 * rowH - 2), Size = new Size(inputW, fieldH), BorderStyle = BorderStyle.FixedSingle, Text = "Kladovshik", ReadOnly = true, BackColor = Color.LightGray };
-
-            var separator = new Panel { Location = new Point(labelX, startY + 4 * rowH - 5), Size = new Size(W - labelX * 2, 1), BackColor = Color.Silver };
-
-            int btnY = startY + 4 * rowH + 10;
-            btnRegister = new Button { Text = "Зарегистрироваться", Font = new Font("Segoe UI", fontSize, FontStyle.Bold), Size = new Size(W / 3, H / 9), BackColor = Color.FromArgb(28, 42, 74), ForeColor = Color.White, FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand };
             btnRegister.FlatAppearance.BorderSize = 0;
             btnRegister.Click  += BtnRegister_Click;
             this.AcceptButton   = btnRegister;
-            this.Load += (s, e) => btnRegister.Location = new Point((W / 2) - btnRegister.Width - 10, btnY);
 
-            btnBack = new Button { Text = "назад", Font = new Font("Segoe UI", fontSize), Size = new Size(W / 6, H / 9), FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand };
+            btnBack = new Button
+            {
+                Text      = "Назад",
+                Font      = new Font("Segoe UI", 10),
+                Location  = new Point(275, 255),
+                Size      = new Size(90, 34),
+                FlatStyle = FlatStyle.Flat,
+                Cursor    = Cursors.Hand
+            };
             btnBack.Click     += (s, e) => this.Close();
             this.CancelButton  = btnBack;
-            this.Load += (s, e) => btnBack.Location = new Point((W / 2) + 10, btnY);
 
-            lblError = new Label { Text = "", ForeColor = Color.Red, Font = new Font("Segoe UI", fontSize - 1), AutoSize = true, Location = new Point(0, btnY + H / 9 + 10) };
-            this.Load += (s, e) => lblError.Left = (W - lblError.Width) / 2;
+            this.Controls.AddRange(new Control[]
+            {
+                lblLogin, txtLogin, lblLoginError,
+                lblPassword, txtPassword,
+                lblConfirm, txtConfirm, lblConfirmError,
+                lblRole, txtRole,
+                sep, btnRegister, btnBack
+            });
+        }
 
-            this.Controls.AddRange(new Control[] { lblLogin, txtLogin, lblPassword, txtPassword, lblConfirm, txtConfirm, lblRole, txtRole, separator, btnRegister, btnBack, lblError });
+        private void SetFieldError(TextBox txt, bool hasError)
+        {
+            txt.BackColor = hasError ? Color.FromArgb(255, 220, 220) : Color.White;
         }
 
         private void BtnRegister_Click(object? sender, EventArgs e)
         {
-            lblError.Text = "";
+            // Reset errors
+            lblLoginError.Visible   = false;
+            lblConfirmError.Visible = false;
+            SetFieldError(txtLogin, false);
+            SetFieldError(txtConfirm, false);
+
             string login    = txtLogin.Text.Trim();
             string password = txtPassword.Text;
             string confirm  = txtConfirm.Text;
 
-            if (string.IsNullOrEmpty(login))    { lblError.Text = "Введите логин"; return; }
-            if (string.IsNullOrEmpty(password)) { lblError.Text = "Введите пароль"; return; }
-            if (password != confirm)            { lblError.Text = "Пароли не совпадают"; txtConfirm.Clear(); txtConfirm.Focus(); return; }
-            if (password.Length < 4)            { lblError.Text = "Пароль минимум 4 символа"; return; }
+            bool valid = true;
+
+            if (string.IsNullOrEmpty(login)) { SetFieldError(txtLogin, true); valid = false; }
+            if (string.IsNullOrEmpty(password)) { SetFieldError(txtPassword, true); valid = false; }
+            if (password != confirm)
+            {
+                lblConfirmError.Text    = "Пароли не совпадают";
+                lblConfirmError.Visible = true;
+                SetFieldError(txtConfirm, true);
+                valid = false;
+            }
+            if (!valid) return;
 
             try
             {
                 using var db = new AppDbContext();
-                if (db.Users.Any(u => u.Login == login)) { lblError.Text = "Логин уже занят"; return; }
-                db.Users.Add(new User { Login = login, PasswordHash = BCrypt.Net.BCrypt.HashPassword(password), Role = "Kladovshik" });
+                if (db.Users.Any(u => u.Login == login))
+                {
+                    lblLoginError.Text    = "Логин уже занят";
+                    lblLoginError.Visible = true;
+                    SetFieldError(txtLogin, true);
+                    return;
+                }
+
+                db.Users.Add(new User
+                {
+                    Login        = login,
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),
+                    Role         = "Kladovshik"
+                });
                 db.SaveChanges();
+
                 RegisteredLogin = login;
-                MessageBox.Show($"Регистрация успешна!\nВойдите под логином «{login}».", "Готово", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show($"Регистрация успешна!\nВойдите под логином «{login}».",
+                    "Готово", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 this.Close();
             }
-            catch (Exception ex) { lblError.Text = $"Ошибка: {ex.Message}"; }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка: {ex.Message}", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
     }
 }
