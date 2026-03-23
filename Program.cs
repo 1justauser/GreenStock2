@@ -19,7 +19,7 @@ namespace GreenStock
 
                 var catalogForm = new CatalogForm(loginForm.LoggedInUser);
                 catalogForm.ShowDialog();
-                // After closing CatalogForm, loop back to LoginForm
+                
             }
         }
     }
