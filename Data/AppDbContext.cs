@@ -14,7 +14,7 @@ namespace GreenStock.Data
         protected override void OnConfiguring(DbContextOptionsBuilder options)
         {
             options.UseNpgsql(
-                "Host=localhost;Database=greensstock;Username=postgres;Password=admin"
+                "Host=localhost;Database=greenstock;Username=postgres;Password=12345"
             );
         }
 

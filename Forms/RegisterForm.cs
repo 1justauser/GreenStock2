@@ -139,6 +139,7 @@ namespace GreenStock.Forms
                     Login        = login,
                     PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),
                     Role         = "Kladovshik"
+                    
                 });
                 db.SaveChanges();
 

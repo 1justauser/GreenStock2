@@ -13,6 +13,10 @@ obj/
 # VS Code
 .vscode/
 
+# ─── Конфигурация с паролями ────────────────────────────────
+
+GreenStock/Data/AppDbContext.cs
+
 # OS
 .DS_Store
 Thumbs.db

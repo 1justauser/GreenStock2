@@ -6,7 +6,7 @@ namespace GreenStock.Forms
 {
     public class DeleteConfirmForm : Form
     {
-        public DeleteConfirmForm(string itemDescription)
+        public DeleteConfirmForm(string itemDescription, string elementType = "элемент")
         {
             this.Text            = "Подтверждение Удаления";
             this.Size            = new Size(440, 280);
