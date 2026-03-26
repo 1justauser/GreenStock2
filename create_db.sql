@@ -1,53 +1,58 @@
 -- ============================================================
 --  GreenStock — PostgreSQL setup script
---  Run this once to create tables and seed initial data
+--  Run this once to create tables and seed initial data.
+--  All primary/foreign keys use UUID instead of SERIAL.
 -- ============================================================
 
--- 1. Create tables
+-- 1. Enable uuid-ossp extension (needed for gen_random_uuid())
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+-- 2. Create tables
 
 CREATE TABLE IF NOT EXISTS users (
-    id            SERIAL PRIMARY KEY,
+    id            UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
     login         VARCHAR(100) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
     role          VARCHAR(50)  NOT NULL  -- 'Admin' or 'Kladovshik'
 );
 
 CREATE TABLE IF NOT EXISTS categories (
-    id   SERIAL PRIMARY KEY,
+    id   UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(100) NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS products (
-    id             SERIAL PRIMARY KEY,
+    id             UUID           PRIMARY KEY DEFAULT gen_random_uuid(),
     article        VARCHAR(50)    NOT NULL UNIQUE,
     name           VARCHAR(200)   NOT NULL,
-    category_id    INT            NOT NULL REFERENCES categories(id),
+    category_id    UUID           NOT NULL REFERENCES categories(id),
     unit           VARCHAR(20)    NOT NULL,  -- шт, пак, кг, л, г
     purchase_price NUMERIC(10, 2) NOT NULL DEFAULT 0,
-    stock          INT            NOT NULL DEFAULT 0
+    stock          INT            NOT NULL DEFAULT 0,
+    expiry_date    DATE           NULL       -- NULL = бессрочный товар
 );
 
 CREATE TABLE IF NOT EXISTS shipments (
-    id         SERIAL PRIMARY KEY,
-    created_by INT       NOT NULL REFERENCES users(id),
-    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    id         UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    created_by UUID         NOT NULL REFERENCES users(id),
+    created_at TIMESTAMP    NOT NULL DEFAULT NOW(),
+    recipient  VARCHAR(200) NOT NULL DEFAULT ''
 );
 
 CREATE TABLE IF NOT EXISTS shipment_items (
-    id          SERIAL PRIMARY KEY,
-    shipment_id INT NOT NULL REFERENCES shipments(id) ON DELETE CASCADE,
-    product_id  INT NOT NULL REFERENCES products(id),
-    quantity    INT NOT NULL
+    id          UUID NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
+    shipment_id UUID NOT NULL REFERENCES shipments(id) ON DELETE CASCADE,
+    product_id  UUID NOT NULL REFERENCES products(id),
+    quantity    INT  NOT NULL
 );
 
 -- ============================================================
--- 2. Seed data
+-- 3. Seed data
 -- ============================================================
 
--- Users
--- Passwords are bcrypt hashes:
---   admin    → Admin123
---   sklad1   → Pass1234
+-- Users (bcrypt hashes, cost=11):
+--   admin   → Admin123
+--   sklad1  → Pass1234
 INSERT INTO users (login, password_hash, role) VALUES
     ('admin',  '$2a$11$KzQy1KjxP9bVkL8mN3oRuOWq1tYcXvZ5eA6dF0gH2iJ4lM7nP8qRs', 'Admin'),
     ('sklad1', '$2a$11$AbCdEfGhIjKlMnOpQrStUuVwXyZ0123456789abcdefghijklmnopq', 'Kladovshik')
@@ -63,16 +68,28 @@ INSERT INTO categories (name) VALUES
 ON CONFLICT DO NOTHING;
 
 -- Products (sample data)
-INSERT INTO products (article, name, category_id, unit, purchase_price, stock) VALUES
-    ('ROSE-001', 'Роза чайная',          1, 'шт', 150.00, 50),
-    ('SEED-042', 'Томат Черри',          2, 'пак', 45.00, 120),
-    ('FLOW-007', 'Петуния ампельная',    3, 'пак', 30.00, 80),
-    ('FERT-003', 'Нитроаммофоска 1кг',  4, 'кг',  85.00, 30),
-    ('SOIL-012', 'Грунт универсальный', 5, 'кг',  55.00, 200)
+INSERT INTO products (article, name, category_id, unit, purchase_price, stock, expiry_date)
+SELECT 'ROSE-001', 'Роза чайная',         id, 'шт',  150.00, 50,  NULL        FROM categories WHERE name = 'Растения садовые'  LIMIT 1
+ON CONFLICT (article) DO NOTHING;
+
+INSERT INTO products (article, name, category_id, unit, purchase_price, stock, expiry_date)
+SELECT 'SEED-042', 'Томат Черри',          id, 'пак',  45.00, 120, '2027-12-31' FROM categories WHERE name = 'Семена овощей'     LIMIT 1
+ON CONFLICT (article) DO NOTHING;
+
+INSERT INTO products (article, name, category_id, unit, purchase_price, stock, expiry_date)
+SELECT 'FLOW-007', 'Петуния ампельная',    id, 'пак',  30.00, 80,  '2026-12-31' FROM categories WHERE name = 'Семена цветов'     LIMIT 1
+ON CONFLICT (article) DO NOTHING;
+
+INSERT INTO products (article, name, category_id, unit, purchase_price, stock, expiry_date)
+SELECT 'FERT-003', 'Нитроаммофоска 1кг',  id, 'кг',   85.00, 30,  NULL        FROM categories WHERE name = 'Удобрения'          LIMIT 1
+ON CONFLICT (article) DO NOTHING;
+
+INSERT INTO products (article, name, category_id, unit, purchase_price, stock, expiry_date)
+SELECT 'SOIL-012', 'Грунт универсальный', id, 'кг',   55.00, 200, NULL        FROM categories WHERE name = 'Грунты и субстраты' LIMIT 1
 ON CONFLICT (article) DO NOTHING;
 
 -- ============================================================
--- 3. Verify
+-- 4. Verify
 -- ============================================================
 SELECT 'users'     AS tbl, COUNT(*) FROM users
 UNION ALL

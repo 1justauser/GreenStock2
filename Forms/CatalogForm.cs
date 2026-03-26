@@ -1,237 +1,325 @@
-using System;
-using System.Collections.Generic;
-using System.Drawing;
-using System.Linq;
-using System.Windows.Forms;
 using GreenStock.Data;
+using GreenStock.Logging;
 using GreenStock.Models;
+using GreenStock.Resources;
 using Microsoft.EntityFrameworkCore;
+using NLog;
 
-namespace GreenStock.Forms
+namespace GreenStock.Forms;
+
+/// <summary>
+/// Главная форма каталога товаров.
+/// Отображает список товаров с фильтрацией, управление (добавление/редактирование/удаление)
+/// доступно только администратору.
+/// </summary>
+public class CatalogForm : Form
 {
-    public class CatalogForm : Form
+    private static readonly ILogger _log = AppLogger.For<CatalogForm>();
+
+    private readonly User _currentUser;
+
+    private MenuStrip         _menuStrip      = null!;
+    private ToolStripMenuItem _menuCatalog    = null!;
+    private ToolStripMenuItem _menuCategories = null!;
+    private ToolStripMenuItem _menuShipments  = null!;
+    private ToolStripMenuItem _menuHistory    = null!;
+    private ToolStripMenuItem _menuExit       = null!;
+    private Label             _lblSearch      = null!;
+    private Label             _lblCategory    = null!;
+    private TextBox           _txtSearch      = null!;
+    private ComboBox          _cmbCategory    = null!;
+    private Button            _btnAdd         = null!;
+    private Button            _btnEdit        = null!;
+    private Button            _btnDelete      = null!;
+    private Label             _lblAdminOnly   = null!;
+    private DataGridView      _dgvProducts    = null!;
+    private Label             _lblCount       = null!;
+
+    private List<Product> _allProducts = new();
+
+    /// <summary>
+    /// Инициализирует форму каталога для заданного пользователя.
+    /// </summary>
+    /// <param name="currentUser">Текущий авторизованный пользователь.</param>
+    public CatalogForm(User currentUser)
     {
-        private readonly User _currentUser;
-
-        private MenuStrip         menuStrip;
-        private ToolStripMenuItem menuCatalog, menuCategories, menuShipments, menuHistory, menuExit;
-        private Label             lblSearch, lblCategory;
-        private TextBox           txtSearch;
-        private ComboBox          cmbCategory;
-        private Button            btnAdd, btnEdit, btnDelete;
-        private Label             lblAdminOnly;
-        private DataGridView      dgvProducts;
-        private Label             lblCount;
-
-        public CatalogForm(User currentUser)
-        {
-            _currentUser = currentUser;
-            InitializeComponent();
-            ApplyRolePermissions();
-            LoadData();
-        }
-
-        private void InitializeComponent()
-        {
-            this.Text          = $"Каталог товаров — {_currentUser.Login} ({_currentUser.Role})";
-            this.StartPosition = FormStartPosition.CenterScreen;
-            this.BackColor     = Color.White;
-            this.WindowState   = FormWindowState.Maximized;
-            this.Size          = new Size(1200, 700);
-
-            // ── MenuStrip ─────────────────────────────────────
-            menuStrip      = new MenuStrip { BackColor = Color.FromArgb(28, 42, 74), ForeColor = Color.White, Font = new Font("Segoe UI", 11) };
-            menuCatalog    = new ToolStripMenuItem("Каталог")   { ForeColor = Color.White };
-            menuCategories = new ToolStripMenuItem("Категории") { ForeColor = Color.White };
-            menuShipments  = new ToolStripMenuItem("Отгрузки")  { ForeColor = Color.White };
-            menuHistory    = new ToolStripMenuItem("История")   { ForeColor = Color.White };
-            menuExit       = new ToolStripMenuItem("Выйти")     { ForeColor = Color.White };
-
-            menuCategories.Click += (s, e) => OpenCategoryForm();
-            menuShipments.Click  += (s, e) => OpenShipmentForm();
-            menuHistory.Click    += (s, e) => OpenHistoryForm();
-            menuExit.Click       += (s, e) => this.Close();
-
-            menuStrip.Items.AddRange(new ToolStripItem[]
-                { menuCatalog, menuCategories, menuShipments, menuHistory, menuExit });
-            this.MainMenuStrip = menuStrip;
-
-            // ── Search row ────────────────────────────────────
-            lblSearch = new Label { Text = "Поиск:", Font = new Font("Segoe UI", 10), Location = new Point(12, 36), AutoSize = true };
-            txtSearch = new TextBox { Font = new Font("Segoe UI", 10), Location = new Point(70, 33), Size = new Size(180, 26), BorderStyle = BorderStyle.FixedSingle };
-            txtSearch.TextChanged += (s, e) => FilterGrid();
-
-            lblCategory = new Label { Text = "Категория:", Font = new Font("Segoe UI", 10), Location = new Point(270, 36), AutoSize = true };
-            cmbCategory = new ComboBox { Font = new Font("Segoe UI", 10), Location = new Point(355, 33), Size = new Size(160, 26), DropDownStyle = ComboBoxStyle.DropDownList };
-            cmbCategory.SelectedIndexChanged += (s, e) => FilterGrid();
-
-            // ── Buttons ───────────────────────────────────────
-            btnAdd = new Button { Text = "+ Добавить товар", Font = new Font("Segoe UI", 10), Location = new Point(12, 68), Size = new Size(150, 30), BackColor = Color.FromArgb(40, 120, 200), ForeColor = Color.White, FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand };
-            btnAdd.FlatAppearance.BorderSize = 0;
-            btnAdd.Click += BtnAdd_Click;
-
-            btnEdit = new Button { Text = "Редактировать", Font = new Font("Segoe UI", 10), Location = new Point(172, 68), Size = new Size(140, 30), BackColor = Color.FromArgb(28, 42, 74), ForeColor = Color.White, FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand };
-            btnEdit.FlatAppearance.BorderSize = 0;
-            btnEdit.Click += BtnEdit_Click;
-
-            btnDelete = new Button { Text = "✕ Удалить", Font = new Font("Segoe UI", 10), Location = new Point(322, 68), Size = new Size(110, 30), BackColor = Color.FromArgb(200, 50, 50), ForeColor = Color.White, FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand };
-            btnDelete.FlatAppearance.BorderSize = 0;
-            btnDelete.Click += BtnDelete_Click;
-
-            lblAdminOnly = new Label { Text = "недоступно для кладовщика", Font = new Font("Segoe UI", 9), ForeColor = Color.Gray, AutoSize = true, Location = new Point(442, 75), Visible = false };
-
-            // ── DataGridView ──────────────────────────────────
-            dgvProducts = new DataGridView
-            {
-                Location              = new Point(12, 108),
-                Anchor                = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right,
-                Size                  = new Size(1160, 520),
-                ReadOnly              = true,
-                AllowUserToAddRows    = false,
-                AllowUserToDeleteRows = false,
-                SelectionMode         = DataGridViewSelectionMode.FullRowSelect,
-                MultiSelect           = false,
-                BackgroundColor       = Color.White,
-                BorderStyle           = BorderStyle.Fixed3D,
-                AutoSizeColumnsMode   = DataGridViewAutoSizeColumnsMode.Fill,
-                Font                  = new Font("Segoe UI", 10)
-            };
-            dgvProducts.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(28, 42, 74);
-            dgvProducts.ColumnHeadersDefaultCellStyle.ForeColor = Color.White;
-            dgvProducts.ColumnHeadersDefaultCellStyle.Font      = new Font("Segoe UI", 10, FontStyle.Bold);
-            dgvProducts.EnableHeadersVisualStyles = false;
-
-            lblCount = new Label { Text = "всего позиций: 0", Font = new Font("Segoe UI", 9), ForeColor = Color.Gray, AutoSize = true, Location = new Point(14, 635), Anchor = AnchorStyles.Bottom | AnchorStyles.Left };
-
-            this.Controls.AddRange(new Control[]
-            {
-                menuStrip, lblSearch, txtSearch, lblCategory, cmbCategory,
-                btnAdd, btnEdit, btnDelete, lblAdminOnly, dgvProducts, lblCount
-            });
-        }
-
-        private void ApplyRolePermissions()
-        {
-            bool isAdmin = _currentUser.Role == "Admin";
-            bool isKlad  = _currentUser.Role == "Kladovshik";
-
-            // Admin menu: Каталог | Категории | История | Выйти
-            menuCategories.Visible = isAdmin;
-            menuHistory.Visible    = isAdmin;
-
-            // Кладовщик menu: Каталог | Отгрузки | Выйти
-            menuShipments.Visible  = isKlad;
-
-            btnAdd.Enabled       = isAdmin;
-            btnEdit.Enabled      = isAdmin;
-            btnDelete.Enabled    = isAdmin;
-            lblAdminOnly.Visible = isKlad;
-        }
-
-        private List<Product> _allProducts = new();
-
-        public void LoadData()
-        {
-            try
-            {
-                using var db = new AppDbContext();
-                var categories = db.Categories.OrderBy(c => c.Name).ToList();
-                cmbCategory.Items.Clear();
-                cmbCategory.Items.Add("Все");
-                foreach (var cat in categories) cmbCategory.Items.Add(cat.Name);
-                if (cmbCategory.SelectedIndex < 0) cmbCategory.SelectedIndex = 0;
-
-                _allProducts = db.Products.Include(p => p.Category).OrderBy(p => p.Article).ToList();
-                FilterGrid();
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Ошибка загрузки:\n{ex.Message}", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-        }
-
-        private void FilterGrid()
-        {
-            string search   = txtSearch.Text.Trim().ToLower();
-            string category = cmbCategory.SelectedItem?.ToString() ?? "Все";
-
-            var filtered = _allProducts.AsEnumerable();
-            if (!string.IsNullOrEmpty(search))
-                filtered = filtered.Where(p =>
-                    p.Article.ToLower().Contains(search) ||
-                    p.Name.ToLower().Contains(search));
-            if (category != "Все")
-                filtered = filtered.Where(p => p.Category.Name == category);
-
-            var list = filtered.ToList();
-            dgvProducts.DataSource = list.Select(p => new
-            {
-                Артикул       = p.Article,
-                Название      = p.Name,
-                Категория     = p.Category.Name,
-                Ед_изм        = p.Unit,
-                Цена_руб      = p.PurchasePrice,
-                Остаток       = p.Stock,
-                Срок_годности = p.ExpiryDate.HasValue
-                    ? p.ExpiryDate.Value.ToString("dd.MM.yyyy")
-                    : "Бессрочно",
-                _Id = p.Id
-            }).ToList();
-
-            if (dgvProducts.Columns.Contains("_Id"))
-                dgvProducts.Columns["_Id"]!.Visible = false;
-            if (dgvProducts.Columns.Contains("Ед_изм"))
-                dgvProducts.Columns["Ед_изм"]!.HeaderText = "Ед. изм.";
-            if (dgvProducts.Columns.Contains("Цена_руб"))
-                dgvProducts.Columns["Цена_руб"]!.HeaderText = "Цена (руб.)";
-            if (dgvProducts.Columns.Contains("Срок_годности"))
-                dgvProducts.Columns["Срок_годности"]!.HeaderText = "Срок годности";
-
-            lblCount.Text = $"всего позиций: {list.Count}";
-        }
-
-        private int? GetSelectedId()
-        {
-            if (dgvProducts.CurrentRow == null) return null;
-            return (int)dgvProducts.CurrentRow.Cells["_Id"].Value;
-        }
-
-        private void BtnAdd_Click(object? sender, EventArgs e)
-        {
-            var form = new ProductForm(null);
-            if (form.ShowDialog() == DialogResult.OK) LoadData();
-        }
-
-        private void BtnEdit_Click(object? sender, EventArgs e)
-        {
-            int? id = GetSelectedId();
-            if (id == null) { MessageBox.Show("Выберите товар.", "Внимание", MessageBoxButtons.OK, MessageBoxIcon.Warning); return; }
-            using var db = new AppDbContext();
-            var product = db.Products.Include(p => p.Category).FirstOrDefault(p => p.Id == id);
-            if (product == null) return;
-            var form = new ProductForm(product);
-            if (form.ShowDialog() == DialogResult.OK) LoadData();
-        }
-
-        private void BtnDelete_Click(object? sender, EventArgs e)
-        {
-            int? id = GetSelectedId();
-            if (id == null) { MessageBox.Show("Выберите товар.", "Внимание", MessageBoxButtons.OK, MessageBoxIcon.Warning); return; }
-            using var db = new AppDbContext();
-            var product = db.Products.FirstOrDefault(p => p.Id == id);
-            if (product == null) return;
-            var dlg = new DeleteConfirmForm($"{product.Article} — {product.Name}");
-            if (dlg.ShowDialog() == DialogResult.Yes)
-            { db.Products.Remove(product); db.SaveChanges(); LoadData(); }
-        }
-
-        private void OpenCategoryForm()
-        {
-            new CategoryForm().ShowDialog();
-            LoadData();
-        }
-
-        private void OpenShipmentForm() { new ShipmentForm(_currentUser).ShowDialog(); LoadData(); }
-        private void OpenHistoryForm()  { new HistoryForm().ShowDialog(); }
+        _currentUser = currentUser;
+        InitializeComponent();
+        ApplyRolePermissions();
+        LoadData();
     }
+
+    private void InitializeComponent()
+    {
+        var roleDisplay = _currentUser.Role == UserRole.Admin
+            ? Strings.Role_Admin
+            : Strings.Role_Kladovshik;
+
+        Text          = Strings.Catalog_Title(_currentUser.Login, roleDisplay);
+        StartPosition = FormStartPosition.CenterScreen;
+        BackColor     = Color.White;
+        WindowState   = FormWindowState.Maximized;
+        Size          = new Size(1200, 700);
+
+        // ── MenuStrip ─────────────────────────────────────────
+        _menuStrip      = new MenuStrip { BackColor = Color.FromArgb(28, 42, 74), ForeColor = Color.White, Font = new Font("Segoe UI", 11) };
+        _menuCatalog    = new ToolStripMenuItem(Strings.Catalog_MenuCatalog)    { ForeColor = Color.White };
+        _menuCategories = new ToolStripMenuItem(Strings.Catalog_MenuCategories) { ForeColor = Color.White };
+        _menuShipments  = new ToolStripMenuItem(Strings.Catalog_MenuShipments)  { ForeColor = Color.White };
+        _menuHistory    = new ToolStripMenuItem(Strings.Catalog_MenuHistory)    { ForeColor = Color.White };
+        _menuExit       = new ToolStripMenuItem(Strings.Catalog_MenuExit)       { ForeColor = Color.White };
+
+        _menuCategories.Click += (s, e) => OpenCategoryForm();
+        _menuShipments.Click  += (s, e) => OpenShipmentForm();
+        _menuHistory.Click    += (s, e) => OpenHistoryForm();
+        _menuExit.Click       += (s, e) => Close();
+
+        _menuStrip.Items.AddRange(new ToolStripItem[]
+            { _menuCatalog, _menuCategories, _menuShipments, _menuHistory, _menuExit });
+        MainMenuStrip = _menuStrip;
+
+        // ── Search row ────────────────────────────────────────
+        _lblSearch = new Label { Text = Strings.Catalog_LabelSearch,   Font = new Font("Segoe UI", 10), Location = new Point(12, 36),  AutoSize = true };
+        _txtSearch = new TextBox { Font = new Font("Segoe UI", 10), Location = new Point(70, 33),  Size = new Size(180, 26), BorderStyle = BorderStyle.FixedSingle };
+        _txtSearch.TextChanged += (s, e) => FilterGrid();
+
+        _lblCategory = new Label { Text = Strings.Catalog_LabelCategory, Font = new Font("Segoe UI", 10), Location = new Point(270, 36), AutoSize = true };
+        _cmbCategory = new ComboBox { Font = new Font("Segoe UI", 10), Location = new Point(355, 33), Size = new Size(160, 26), DropDownStyle = ComboBoxStyle.DropDownList };
+        _cmbCategory.SelectedIndexChanged += (s, e) => FilterGrid();
+
+        // ── Buttons ───────────────────────────────────────────
+        _btnAdd = new Button
+        {
+            Text      = Strings.Catalog_BtnAdd,
+            Font      = new Font("Segoe UI", 10),
+            Location  = new Point(12, 68),
+            Size      = new Size(150, 30),
+            BackColor = Color.FromArgb(40, 120, 200),
+            ForeColor = Color.White,
+            FlatStyle = FlatStyle.Flat,
+            Cursor    = Cursors.Hand
+        };
+        _btnAdd.FlatAppearance.BorderSize = 0;
+        _btnAdd.Click += BtnAdd_Click;
+
+        _btnEdit = new Button
+        {
+            Text      = Strings.Catalog_BtnEdit,
+            Font      = new Font("Segoe UI", 10),
+            Location  = new Point(172, 68),
+            Size      = new Size(140, 30),
+            BackColor = Color.FromArgb(28, 42, 74),
+            ForeColor = Color.White,
+            FlatStyle = FlatStyle.Flat,
+            Cursor    = Cursors.Hand
+        };
+        _btnEdit.FlatAppearance.BorderSize = 0;
+        _btnEdit.Click += BtnEdit_Click;
+
+        _btnDelete = new Button
+        {
+            Text      = Strings.Catalog_BtnDelete,
+            Font      = new Font("Segoe UI", 10),
+            Location  = new Point(322, 68),
+            Size      = new Size(110, 30),
+            BackColor = Color.FromArgb(200, 50, 50),
+            ForeColor = Color.White,
+            FlatStyle = FlatStyle.Flat,
+            Cursor    = Cursors.Hand
+        };
+        _btnDelete.FlatAppearance.BorderSize = 0;
+        _btnDelete.Click += BtnDelete_Click;
+
+        _lblAdminOnly = new Label
+        {
+            Text     = Strings.Catalog_AdminOnly,
+            Font     = new Font("Segoe UI", 9),
+            ForeColor = Color.Gray,
+            AutoSize  = true,
+            Location  = new Point(442, 75),
+            Visible   = false
+        };
+
+        // ── DataGridView ──────────────────────────────────────
+        _dgvProducts = new DataGridView
+        {
+            Location              = new Point(12, 108),
+            Anchor                = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right,
+            Size                  = new Size(1160, 520),
+            ReadOnly              = true,
+            AllowUserToAddRows    = false,
+            AllowUserToDeleteRows = false,
+            SelectionMode         = DataGridViewSelectionMode.FullRowSelect,
+            MultiSelect           = false,
+            BackgroundColor       = Color.White,
+            BorderStyle           = BorderStyle.Fixed3D,
+            AutoSizeColumnsMode   = DataGridViewAutoSizeColumnsMode.Fill,
+            Font                  = new Font("Segoe UI", 10)
+        };
+        _dgvProducts.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(28, 42, 74);
+        _dgvProducts.ColumnHeadersDefaultCellStyle.ForeColor = Color.White;
+        _dgvProducts.ColumnHeadersDefaultCellStyle.Font      = new Font("Segoe UI", 10, FontStyle.Bold);
+        _dgvProducts.EnableHeadersVisualStyles = false;
+
+        _lblCount = new Label
+        {
+            Text     = Strings.Catalog_CountLabel(0),
+            Font     = new Font("Segoe UI", 9),
+            ForeColor = Color.Gray,
+            AutoSize  = true,
+            Location  = new Point(14, 635),
+            Anchor    = AnchorStyles.Bottom | AnchorStyles.Left
+        };
+
+        Controls.AddRange(new Control[]
+        {
+            _menuStrip, _lblSearch, _txtSearch, _lblCategory, _cmbCategory,
+            _btnAdd, _btnEdit, _btnDelete, _lblAdminOnly, _dgvProducts, _lblCount
+        });
+    }
+
+    private void ApplyRolePermissions()
+    {
+        var isAdmin = _currentUser.Role == UserRole.Admin;
+        var isKlad  = _currentUser.Role == UserRole.Kladovshik;
+
+        _menuCategories.Visible = isAdmin;
+        _menuHistory.Visible    = isAdmin;
+        _menuShipments.Visible  = isKlad;
+
+        _btnAdd.Enabled       = isAdmin;
+        _btnEdit.Enabled      = isAdmin;
+        _btnDelete.Enabled    = isAdmin;
+        _lblAdminOnly.Visible = isKlad;
+    }
+
+    /// <summary>
+    /// Загружает данные из БД и обновляет таблицу.
+    /// </summary>
+    public void LoadData()
+    {
+        try
+        {
+            using var db = new AppDbContext();
+
+            var categories = db.Categories.OrderBy(c => c.Name).ToList();
+            _cmbCategory.Items.Clear();
+            _cmbCategory.Items.Add(Strings.Catalog_AllCategories);
+            foreach (var cat in categories) _cmbCategory.Items.Add(cat.Name);
+            if (_cmbCategory.SelectedIndex < 0) _cmbCategory.SelectedIndex = 0;
+
+            _allProducts = db.Products.Include(p => p.Category).OrderBy(p => p.Article).ToList();
+            _log.Debug("Загружено {0} товаров", _allProducts.Count);
+            FilterGrid();
+        }
+        catch (Exception ex)
+        {
+            _log.Error(ex, "Ошибка загрузки каталога");
+            MessageBox.Show($"{Strings.Catalog_ErrLoading}\n{ex.Message}",
+                Strings.Error, MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    private void FilterGrid()
+    {
+        var search   = _txtSearch.Text.Trim().ToLower();
+        var category = _cmbCategory.SelectedItem?.ToString() ?? Strings.Catalog_AllCategories;
+
+        var filtered = _allProducts.AsEnumerable();
+        if (!string.IsNullOrEmpty(search))
+            filtered = filtered.Where(p =>
+                p.Article.ToLower().Contains(search) ||
+                p.Name.ToLower().Contains(search));
+        if (category != Strings.Catalog_AllCategories)
+            filtered = filtered.Where(p => p.Category.Name == category);
+
+        var list = filtered.ToList();
+        _dgvProducts.DataSource = list.Select(p => new
+        {
+            Артикул       = p.Article,
+            Название      = p.Name,
+            Категория     = p.Category.Name,
+            Ед_изм        = p.Unit,
+            Цена_руб      = p.PurchasePrice,
+            Остаток       = p.Stock,
+            Срок_годности = p.ExpiryDate.HasValue
+                ? p.ExpiryDate.Value.ToString("dd.MM.yyyy")
+                : Strings.Catalog_Perpetual,
+            _Id = p.Id
+        }).ToList();
+
+        if (_dgvProducts.Columns.Contains("_Id"))        _dgvProducts.Columns["_Id"]!.Visible     = false;
+        if (_dgvProducts.Columns.Contains("Ед_изм"))     _dgvProducts.Columns["Ед_изм"]!.HeaderText = Strings.Catalog_ColUnit;
+        if (_dgvProducts.Columns.Contains("Цена_руб"))   _dgvProducts.Columns["Цена_руб"]!.HeaderText = Strings.Catalog_ColPrice;
+        if (_dgvProducts.Columns.Contains("Срок_годности")) _dgvProducts.Columns["Срок_годности"]!.HeaderText = Strings.Catalog_ColExpiry;
+
+        _lblCount.Text = Strings.Catalog_CountLabel(list.Count);
+    }
+
+    /// <summary>
+    /// Возвращает Guid выбранного товара или <c>null</c>, если ничего не выбрано.
+    /// </summary>
+    private Guid? GetSelectedId()
+    {
+        if (_dgvProducts.CurrentRow == null) return null;
+        var val = _dgvProducts.CurrentRow.Cells["_Id"].Value;
+        return val is Guid id ? id : null;
+    }
+
+    private void BtnAdd_Click(object? sender, EventArgs e)
+    {
+        var form = new ProductForm(null);
+        if (form.ShowDialog() == DialogResult.OK) LoadData();
+    }
+
+    private void BtnEdit_Click(object? sender, EventArgs e)
+    {
+        var id = GetSelectedId();
+        if (id == null)
+        {
+            MessageBox.Show(Strings.Catalog_SelectProduct, Strings.Warning,
+                MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        using var db = new AppDbContext();
+        var product = db.Products.Include(p => p.Category).FirstOrDefault(p => p.Id == id);
+        if (product == null) return;
+
+        var form = new ProductForm(product);
+        if (form.ShowDialog() == DialogResult.OK) LoadData();
+    }
+
+    private void BtnDelete_Click(object? sender, EventArgs e)
+    {
+        var id = GetSelectedId();
+        if (id == null)
+        {
+            MessageBox.Show(Strings.Catalog_SelectProduct, Strings.Warning,
+                MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        using var db = new AppDbContext();
+        var product = db.Products.FirstOrDefault(p => p.Id == id);
+        if (product == null) return;
+
+        var dlg = new DeleteConfirmForm($"{product.Article} — {product.Name}");
+        if (dlg.ShowDialog() == DialogResult.Yes)
+        {
+            _log.Info("Удаление товара: {0} ({1})", product.Article, product.Name);
+            db.Products.Remove(product);
+            db.SaveChanges();
+            LoadData();
+        }
+    }
+
+    private void OpenCategoryForm()
+    {
+        new CategoryForm().ShowDialog();
+        LoadData();
+    }
+
+    private void OpenShipmentForm() { new ShipmentForm(_currentUser).ShowDialog(); LoadData(); }
+    private void OpenHistoryForm()  { new HistoryForm().ShowDialog(); }
 }

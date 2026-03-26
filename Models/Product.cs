@@ -1,17 +1,70 @@
-namespace GreenStock.Models
-{
-    public class Product
-    {
-        public int Id { get; set; }
-        public string Article { get; set; } = string.Empty;
-        public string Name { get; set; } = string.Empty;
-        public int CategoryId { get; set; }
-        public Category Category { get; set; } = null!;
-        public string Unit { get; set; } = string.Empty;
-        public decimal PurchasePrice { get; set; }
-        public int Stock { get; set; }
-        public DateOnly? ExpiryDate { get; set; }
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
-        public ICollection<ShipmentItem> ShipmentItems { get; set; } = new List<ShipmentItem>();
-    }
+namespace GreenStock.Models;
+
+/// <summary>
+/// Представляет товар на складе.
+/// </summary>
+[Table("products")]
+public class Product
+{
+    /// <summary>
+    /// Уникальный идентификатор товара (UUID).
+    /// </summary>
+    [Key]
+    [Column("id")]
+    public Guid Id { get; set; }
+
+    /// <summary>
+    /// Артикул товара.
+    /// </summary>
+    [Column("article")]
+    public string Article { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Название товара.
+    /// </summary>
+    [Column("name")]
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Идентификатор категории (UUID).
+    /// </summary>
+    [Column("category_id")]
+    public Guid CategoryId { get; set; }
+
+    /// <summary>
+    /// Единица измерения.
+    /// </summary>
+    [Column("unit")]
+    public string Unit { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Закупочная цена.
+    /// </summary>
+    [Column("purchase_price")]
+    public decimal PurchasePrice { get; set; }
+
+    /// <summary>
+    /// Остаток на складе.
+    /// </summary>
+    [Column("stock")]
+    public int Stock { get; set; }
+
+    /// <summary>
+    /// Срок годности товара. <c>null</c> означает бессрочный товар.
+    /// </summary>
+    [Column("expiry_date")]
+    public DateOnly? ExpiryDate { get; set; }
+
+    /// <summary>
+    /// Категория товара.
+    /// </summary>
+    public Category Category { get; set; } = null!;
+
+    /// <summary>
+    /// Коллекция позиций в отгрузках.
+    /// </summary>
+    public ICollection<ShipmentItem> ShipmentItems { get; set; } = new List<ShipmentItem>();
 }
