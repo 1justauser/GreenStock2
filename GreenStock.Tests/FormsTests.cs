@@ -564,7 +564,255 @@ namespace GreenStock.Tests
             string hash = BCrypt.Net.BCrypt.HashPassword(password);
             Assert.That(BCrypt.Net.BCrypt.Verify(wrongPass, hash), Is.False);
         }
-        
+
         #endregion
+        // ============================================================================
+        // ГРУППА 5: Отгрузки, История и Категории (TC-13..TC-20)
+        // ============================================================================
+
+        #region TC-13 — Просмотр истории отгрузок (Администратор)
+
+        [Test]
+        [Apartment(ApartmentState.STA)]
+        [Description("TC-13 / US-13 — Просмотр истории отгрузок Администратором")]
+        [Category("История")]
+        public void TC13_ViewHistory_Admin_Success()
+        {
+            // Arrange
+            var form = new HistoryForm(); // Без параметров!
+            var dgvShipments = GetPrivateField<DataGridView>(form, "dgvShipments");
+            var dgvItems = GetPrivateField<DataGridView>(form, "dgvItems");
+
+            // Assert
+            Assert.That(form, Is.Not.Null, "Форма истории должна открыться");
+            Assert.That(dgvShipments, Is.Not.Null, "Таблица отгрузок должна существовать");
+            Assert.That(dgvItems, Is.Not.Null, "Таблица позиций должна существовать");
+        }
+
+        #endregion
+
+        #region TC-14 — Попытка отгрузки с недостаточным количеством (Негативный)
+
+        [Test]
+        [Apartment(ApartmentState.STA)]
+        [Description("TC-14 / US-11 — Попытка отгрузки с недостаточным количеством (Негативный)")]
+        [Category("Отгрузки")]
+        public void TC14_InsufficientStock_ShowsWarning()
+        {
+            // Arrange
+            using var db = new AppDbContext();
+            var product = db.Products.First(p => p.Article == "ROSE-001");
+            product.Stock = 5;
+            db.SaveChanges();
+
+            var warehouseUser = new User { Id = 2, Login = "sklad1", Role = "Kladovshik" };
+            var form = new ShipmentForm(warehouseUser);
+
+            var txtRecipient = GetPrivateField<TextBox>(form, "txtRecipient");
+            var cmbProduct = GetPrivateField<ComboBox>(form, "cmbProduct");
+            var nudQty = GetPrivateField<NumericUpDown>(form, "nudQty");
+            var btnAddRow = GetPrivateField<Button>(form, "btnAddRow");
+            var btnConfirm = GetPrivateField<Button>(form, "btnConfirm");
+            var lblWarning = GetPrivateField<Label>(form, "lblWarning");
+
+            txtRecipient.Text = "ООО Тест";
+            cmbProduct.SelectedIndex = 0;
+            nudQty.Value = 20; // Больше чем есть (5)
+
+            // Act
+            btnAddRow.PerformClick();
+
+            // Assert
+            Assert.That(btnConfirm.Enabled, Is.False, "Кнопка 'Подтвердить' должна быть заблокирована");
+            Assert.That(lblWarning.Text, Does.Contain("Недостаточно"), "Должно быть предупреждение о нехватке");
+        }
+
+        #endregion
+
+        #region TC-15 — Попытка отгрузки без указания получателя (Негативный)
+
+        [Test]
+        [Apartment(ApartmentState.STA)]
+        [Description("TC-15 / US-09 — Попытка отгрузки без получателя (Негативный)")]
+        [Category("Отгрузки")]
+        public void TC15_NoRecipient_ShowsError()
+        {
+            // Arrange
+            var warehouseUser = new User { Id = 2, Login = "sklad1", Role = "Kladovshik" };
+            var form = new ShipmentForm(warehouseUser);
+
+            var txtRecipient = GetPrivateField<TextBox>(form, "txtRecipient");
+            var cmbProduct = GetPrivateField<ComboBox>(form, "cmbProduct");
+            var nudQty = GetPrivateField<NumericUpDown>(form, "nudQty");
+            var btnAddRow = GetPrivateField<Button>(form, "btnAddRow");
+            var btnConfirm = GetPrivateField<Button>(form, "btnConfirm");
+            var lblRecipientError = GetPrivateField<Label>(form, "lblRecipientError");
+
+            txtRecipient.Text = ""; // Пусто
+            cmbProduct.SelectedIndex = 0;
+            nudQty.Value = 1;
+
+            // Act
+            btnAddRow.PerformClick();
+            btnConfirm.PerformClick();
+
+            // Assert
+            Assert.That(lblRecipientError.Visible, Is.True, "Ошибка должна быть видна");
+            Assert.That(lblRecipientError.Text, Does.Contain("обязательно"), "Текст должен содержать 'обязательно'");
+        }
+
+        #endregion
+
+        #region TC-16 — Добавление категории (Позитивный)
+
+        [Test]
+        [Apartment(ApartmentState.STA)]
+        [Description("TC-16 / US-14 — Успешное добавление уникальной категории")]
+        [Category("Категории")]
+        public void TC16_AddCategory_Success()
+        {
+            // Arrange
+            var form = new CategoryForm();
+            var txtName = GetPrivateField<TextBox>(form, "txtName");
+            var btnAdd = GetPrivateField<Button>(form, "btnAdd");
+            var lstCategories = GetPrivateField<ListBox>(form, "lstCategories");
+
+            string newCategoryName = "Тестовая категория " + Guid.NewGuid().ToString().Substring(0, 6);
+            txtName.Text = newCategoryName;
+
+            // Act
+            btnAdd.PerformClick();
+
+            // Assert
+            using var db = new AppDbContext();
+            var category = db.Categories.FirstOrDefault(c => c.Name == newCategoryName);
+            Assert.That(category, Is.Not.Null, "Категория должна быть создана в БД");
+            Assert.That(lstCategories.Items.Contains(newCategoryName), Is.True, "Категория должна быть в ListBox");
+        }
+
+        #endregion
+
+        #region TC-17 — Добавление категории с существующим названием (Негативный)
+
+        [Test]
+        [Apartment(ApartmentState.STA)]
+        [Description("TC-17 / US-14 — Попытка добавления категории с существующим названием (Негативный)")]
+        [Category("Категории")]
+        public void TC17_DuplicateCategory_ShowsError()
+        {
+            // Arrange
+            var form = new CategoryForm();
+            var txtName = GetPrivateField<TextBox>(form, "txtName");
+            var btnAdd = GetPrivateField<Button>(form, "btnAdd");
+            var lblError = GetPrivateField<Label>(form, "lblError");
+
+            txtName.Text = "Цветы"; // Уже существует из Setup()
+
+            // Act
+            btnAdd.PerformClick();
+
+            // Assert
+            Assert.That(lblError.Visible, Is.True, "Ошибка должна быть видна");
+            Assert.That(lblError.Text, Does.Contain("существует"), "Текст ошибки должен содержать 'существует'");
+        }
+
+        #endregion
+
+        #region TC-18 — Переименование категории (Позитивный)
+
+        [Test]
+        [Apartment(ApartmentState.STA)]
+        [Description("TC-18 / US-14 — Успешное переименование категории")]
+        [Category("Категории")]
+        public void TC18_RenameCategory_Success()
+        {
+            // Arrange
+            var form = new CategoryForm();
+            var txtName = GetPrivateField<TextBox>(form, "txtName");
+            var btnRename = GetPrivateField<Button>(form, "btnRename");
+            var lstCategories = GetPrivateField<ListBox>(form, "lstCategories");
+
+            // Выбираем существующую категорию
+            lstCategories.SelectedItem = "Цветы";
+            txtName.Text = "Цветы (обновлённые)";
+
+            // Act
+            btnRename.PerformClick();
+
+            // Assert
+            using var db = new AppDbContext();
+            var category = db.Categories.FirstOrDefault(c => c.Name == "Цветы (обновлённые)");
+            Assert.That(category, Is.Not.Null, "Категория должна быть переименована в БД");
+            Assert.That(lstCategories.Items.Contains("Цветы (обновлённые)"), Is.True, "Новое название должно быть в ListBox");
+        }
+
+        #endregion
+
+        #region TC-19 — Удаление пустой категории (Позитивный)
+
+        [Test]
+        [Apartment(ApartmentState.STA)]
+        [Description("TC-19 / US-14 — Подтверждение удаления пустой категории")]
+        [Category("Категории")]
+        public void TC19_DeleteEmptyCategory_Success()
+        {
+            // Arrange
+            using var db = new AppDbContext();
+
+            // Создаём пустую категорию (без товаров)
+            var emptyCategory = new Category { Name = "Пустая категория для удаления" };
+            db.Categories.Add(emptyCategory);
+            db.SaveChanges();
+
+            var form = new CategoryForm();
+            var btnDelete = GetPrivateField<Button>(form, "btnDelete");
+            var lstCategories = GetPrivateField<ListBox>(form, "lstCategories");
+
+            // Находим и выбираем созданную категорию
+            lstCategories.SelectedItem = "Пустая категория для удаления";
+
+            // Act
+            btnDelete.PerformClick();
+
+            // Assert
+            db.ChangeTracker.Clear();
+            var deleted = db.Categories.FirstOrDefault(c => c.Name == "Пустая категория для удаления");
+            Assert.That(deleted, Is.Null, "Категория должна быть удалена из БД");
+        }
+
+        #endregion
+
+        #region TC-20 — Удаление категории с товарами (Негативный)
+
+        [Test]
+        [Apartment(ApartmentState.STA)]
+        [Description("TC-20 / US-14 — Попытка удаления категории с товарами (Негативный)")]
+        [Category("Категории")]
+        public void TC20_DeleteCategory_WithProducts_Blocked()
+        {
+            // Arrange
+            var form = new CategoryForm();
+            var btnDelete = GetPrivateField<Button>(form, "btnDelete");
+            var lstCategories = GetPrivateField<ListBox>(form, "lstCategories");
+            var lblError = GetPrivateField<Label>(form, "lblError");
+
+            // Категория "Семена" имеет товар SEED-042 из Setup()
+            lstCategories.SelectedItem = "Семена";
+
+            // Act
+            btnDelete.PerformClick();
+
+            // Assert
+            Assert.That(lblError.Visible, Is.True, "Ошибка должна быть видна");
+            Assert.That(lblError.Text, Does.Contain("товары"), "Текст должен содержать предупреждение о товарах");
+
+            // Проверка что категория не удалена
+            using var db = new AppDbContext();
+            var stillExists = db.Categories.FirstOrDefault(c => c.Name == "Семена");
+            Assert.That(stillExists, Is.Not.Null, "Категория с товарами не должна быть удалена");
+        }
+
+        #endregion
+
     }
 }
