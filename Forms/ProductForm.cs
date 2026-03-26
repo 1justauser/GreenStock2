@@ -1,262 +1,323 @@
-using System;
-using System.Drawing;
-using System.Linq;
-using System.Windows.Forms;
 using GreenStock.Data;
+using GreenStock.Logging;
 using GreenStock.Models;
+using GreenStock.Resources;
+using NLog;
 
-namespace GreenStock.Forms
+namespace GreenStock.Forms;
+
+/// <summary>
+/// Форма добавления или редактирования товара.
+/// </summary>
+public class ProductForm : Form
 {
-    public class ProductForm : Form
+    private static readonly ILogger _log = AppLogger.For<ProductForm>();
+
+    private readonly Product? _existing;
+
+    private Label         _lblArticle      = null!;
+    private Label         _lblName         = null!;
+    private Label         _lblCategory     = null!;
+    private Label         _lblUnit         = null!;
+    private Label         _lblPrice        = null!;
+    private Label         _lblStock        = null!;
+    private Label         _lblExpiry       = null!;
+    private TextBox       _txtArticle      = null!;
+    private TextBox       _txtName         = null!;
+    private TextBox       _txtStock        = null!;
+    private ComboBox      _cmbCategory     = null!;
+    private ComboBox      _cmbUnit         = null!;
+    private NumericUpDown _nudPrice        = null!;
+    private DateTimePicker _dtpExpiry      = null!;
+    private CheckBox      _chkNoExpiry     = null!;
+    private Label         _lblArticleError = null!;
+    private Label         _lblNameError    = null!;
+    private Button        _btnSave         = null!;
+    private Button        _btnCancel       = null!;
+
+    /// <summary>
+    /// Инициализирует форму.
+    /// </summary>
+    /// <param name="existing">Существующий товар для редактирования, или <c>null</c> для добавления.</param>
+    public ProductForm(Product? existing)
     {
-        private readonly Product? _existing;
+        _existing = existing;
+        InitializeComponent();
+        LoadCategories();
+        if (_existing != null) FillFields();
+    }
 
-        private Label lblArticle, lblName, lblCategory, lblUnit, lblPrice, lblStock, lblExpiry;
-        private TextBox txtArticle, txtName;
-        private TextBox txtStock;
-        private ComboBox cmbCategory, cmbUnit;
-        private NumericUpDown nudPrice;
-        private DateTimePicker dtpExpiry;
-        private CheckBox chkNoExpiry;
-        private Label lblArticleError, lblNameError;
-        private Button btnSave, btnCancel;
-        private Label lblRequired;
+    private void InitializeComponent()
+    {
+        var isEdit = _existing != null;
 
-        public ProductForm(Product? existing)
+        Text            = isEdit ? Strings.Product_TitleEdit : Strings.Product_TitleAdd;
+        Size            = new Size(400, 470);
+        StartPosition   = FormStartPosition.CenterParent;
+        FormBorderStyle = FormBorderStyle.FixedDialog;
+        MaximizeBox     = false;
+        MinimizeBox     = false;
+        BackColor       = Color.FromArgb(240, 240, 245);
+
+        const int labelX = 30;
+        const int inputX = 165;
+        const int inputW = 185;
+        const int rowH   = 50;
+        const int startY = 20;
+
+        Label MakeLabel(string text, int row) => new Label
         {
-            _existing = existing;
-            InitializeComponent();
-            LoadCategories();
-            if (_existing != null) FillFields();
-        }
+            Text     = text,
+            Font     = new Font("Segoe UI", 10),
+            Location = new Point(labelX, startY + row * rowH + 4),
+            AutoSize = true
+        };
 
-        private void InitializeComponent()
+        // ── Артикул ───────────────────────────────────────────
+        _lblArticle = MakeLabel(Strings.Product_LabelArticle, 0);
+        _txtArticle = new TextBox
         {
-            bool isEdit = _existing != null;
+            Font      = new Font("Segoe UI", 10),
+            Location  = new Point(inputX, startY + 0 * rowH),
+            Size      = new Size(inputW, 24),
+            ReadOnly  = isEdit,
+            BackColor = isEdit ? Color.FromArgb(220, 220, 220) : Color.White
+        };
+        _lblArticleError = new Label
+        {
+            Text     = Strings.Product_ErrArticleExists,
+            Font     = new Font("Segoe UI", 8),
+            ForeColor = Color.Red,
+            Location  = new Point(inputX, startY + 0 * rowH + 26),
+            AutoSize  = true,
+            Visible   = false
+        };
 
-            this.Text = isEdit ? "Редактировать товар" : "Добавить товар";
-            this.Size = new Size(400, 470);
-            this.StartPosition = FormStartPosition.CenterParent;
-            this.FormBorderStyle = FormBorderStyle.FixedDialog;
-            this.MaximizeBox = false;
-            this.MinimizeBox = false;
-            this.BackColor = Color.FromArgb(240, 240, 245);
+        // ── Название ──────────────────────────────────────────
+        _lblName = MakeLabel(Strings.Product_LabelName, 1);
+        _txtName = new TextBox
+            { Font = new Font("Segoe UI", 10), Location = new Point(inputX, startY + 1 * rowH), Size = new Size(inputW, 24) };
+        _lblNameError = new Label
+        {
+            Text     = Strings.RequiredField,
+            Font     = new Font("Segoe UI", 8),
+            ForeColor = Color.Red,
+            Location  = new Point(inputX, startY + 1 * rowH + 26),
+            AutoSize  = true,
+            Visible   = false
+        };
 
-            int labelX = 30;
-            int inputX = 165;
-            int inputW = 185;
-            int rowH = 50;
-            int startY = 20;
+        // ── Категория ─────────────────────────────────────────
+        _lblCategory = MakeLabel(Strings.Product_LabelCategory, 2);
+        _cmbCategory = new ComboBox
+            { Font = new Font("Segoe UI", 10), Location = new Point(inputX, startY + 2 * rowH), Size = new Size(inputW, 24), DropDownStyle = ComboBoxStyle.DropDownList };
 
-            Label MakeLabel(string text, int row) => new Label
-            {
-                Text = text,
-                Font = new Font("Segoe UI", 10),
-                Location = new Point(labelX, startY + row * rowH + 4),
-                AutoSize = true
-            };
+        // ── Единица измерения ─────────────────────────────────
+        _lblUnit = MakeLabel(Strings.Product_LabelUnit, 3);
+        _cmbUnit = new ComboBox
+            { Font = new Font("Segoe UI", 10), Location = new Point(inputX, startY + 3 * rowH), Size = new Size(100, 24), DropDownStyle = ComboBoxStyle.DropDownList };
+        _cmbUnit.Items.AddRange(new[] { "шт", "пак", "кг", "л", "г" });
+        _cmbUnit.SelectedIndex = 0;
 
-            // ── Артикул ───────────────────────────────────────
-            lblArticle = MakeLabel("Артикул*:", 0);
-            txtArticle = new TextBox
-            {
-                Font = new Font("Segoe UI", 10),
-                Location = new Point(inputX, startY + 0 * rowH),
-                Size = new Size(inputW, 24),
-                ReadOnly = isEdit,
-                BackColor = isEdit ? Color.FromArgb(220, 220, 220) : Color.White
-            };
-            lblArticleError = new Label { Text = "Артикул уже существует", Font = new Font("Segoe UI", 8), ForeColor = Color.Red, Location = new Point(inputX, startY + 0 * rowH + 26), AutoSize = true, Visible = false };
+        // ── Цена закупки ──────────────────────────────────────
+        _lblPrice = MakeLabel(Strings.Product_LabelPrice, 4);
+        _nudPrice = new NumericUpDown
+            { Font = new Font("Segoe UI", 10), Location = new Point(inputX, startY + 4 * rowH), Size = new Size(80, 24), Minimum = 0, Maximum = 999999, DecimalPlaces = 2 };
+        var lblRub = new Label
+            { Text = Strings.Get("Product_Rub"), Font = new Font("Segoe UI", 10), Location = new Point(inputX + 86, startY + 4 * rowH + 4), AutoSize = true };
 
-            // ── Название ──────────────────────────────────────
-            lblName = MakeLabel("Название*:", 1);
-            txtName = new TextBox { Font = new Font("Segoe UI", 10), Location = new Point(inputX, startY + 1 * rowH), Size = new Size(inputW, 24) };
-            lblNameError = new Label { Text = "Поле обязательно для заполнения", Font = new Font("Segoe UI", 8), ForeColor = Color.Red, Location = new Point(inputX, startY + 1 * rowH + 26), AutoSize = true, Visible = false };
+        // ── Количество ────────────────────────────────────────
+        _lblStock = MakeLabel(Strings.Product_LabelStock, 5);
+        _txtStock = new TextBox
+        {
+            Font      = new Font("Segoe UI", 10),
+            Location  = new Point(inputX, startY + 5 * rowH),
+            Size      = new Size(60, 24),
+            Text      = isEdit ? _existing!.Stock.ToString() : "0",
+            ReadOnly  = isEdit,
+            BackColor = isEdit ? Color.FromArgb(220, 220, 220) : Color.White
+        };
+        var lblPcs = new Label
+            { Text = Strings.Get("Product_Pcs"), Font = new Font("Segoe UI", 10), Location = new Point(inputX + 66, startY + 5 * rowH + 4), AutoSize = true };
 
-            // ── Категория ─────────────────────────────────────
-            lblCategory = MakeLabel("Категория*:", 2);
-            cmbCategory = new ComboBox { Font = new Font("Segoe UI", 10), Location = new Point(inputX, startY + 2 * rowH), Size = new Size(inputW, 24), DropDownStyle = ComboBoxStyle.DropDownList };
+        // ── Срок годности ─────────────────────────────────────
+        _lblExpiry = MakeLabel(Strings.Product_LabelExpiry, 6);
+        _dtpExpiry = new DateTimePicker
+        {
+            Font     = new Font("Segoe UI", 10),
+            Location = new Point(inputX, startY + 6 * rowH),
+            Size     = new Size(130, 24),
+            Format   = DateTimePickerFormat.Short
+        };
+        _chkNoExpiry = new CheckBox
+        {
+            Text     = Strings.Product_ChkNoExpiry,
+            Font     = new Font("Segoe UI", 10),
+            Location = new Point(inputX + 140, startY + 6 * rowH + 3),
+            AutoSize = true
+        };
+        _chkNoExpiry.CheckedChanged += (s, e) => _dtpExpiry.Enabled = !_chkNoExpiry.Checked;
 
-            // ── Единица изм. ──────────────────────────────────
-            lblUnit = MakeLabel("Единица изм.:", 3);
-            cmbUnit = new ComboBox { Font = new Font("Segoe UI", 10), Location = new Point(inputX, startY + 3 * rowH), Size = new Size(100, 24), DropDownStyle = ComboBoxStyle.DropDownList };
-            cmbUnit.Items.AddRange(new[] { "шт", "пак", "кг", "л", "г" });
-            cmbUnit.SelectedIndex = 0;
+        var lblRequired = new Label
+        {
+            Text      = Strings.Product_RequiredHint,
+            Font      = new Font("Segoe UI", 8),
+            ForeColor = Color.Gray,
+            Location  = new Point(labelX, startY + 7 * rowH + 5),
+            AutoSize  = true
+        };
 
-            // ── Цена закупки ──────────────────────────────────
-            lblPrice = MakeLabel("Цена закупки:", 4);
-            nudPrice = new NumericUpDown { Font = new Font("Segoe UI", 10), Location = new Point(inputX, startY + 4 * rowH), Size = new Size(80, 24), Minimum = 0, Maximum = 999999, DecimalPlaces = 2 };
-            var lblRub = new Label { Text = "руб.", Font = new Font("Segoe UI", 10), Location = new Point(inputX + 86, startY + 4 * rowH + 4), AutoSize = true };
+        var btnY = startY + 7 * rowH + 28;
+        _btnSave = new Button
+        {
+            Text      = Strings.Get("Save"),
+            Font      = new Font("Segoe UI", 10, FontStyle.Bold),
+            Location  = new Point(160, btnY),
+            Size      = new Size(100, 32),
+            BackColor = Color.FromArgb(28, 42, 74),
+            ForeColor = Color.White,
+            FlatStyle = FlatStyle.Flat,
+            Cursor    = Cursors.Hand
+        };
+        _btnSave.FlatAppearance.BorderSize = 0;
+        _btnSave.Click += BtnSave_Click;
+        AcceptButton    = _btnSave;
 
-            // ── Количество ────────────────────────────────────
-            lblStock = MakeLabel("Количество:", 5);
-            txtStock = new TextBox
-            {
-                Font = new Font("Segoe UI", 10),
-                Location = new Point(inputX, startY + 5 * rowH),
-                Size = new Size(60, 24),
-                Text = isEdit ? _existing!.Stock.ToString() : "0",
-                ReadOnly = isEdit,
-                BackColor = isEdit ? Color.FromArgb(220, 220, 220) : Color.White
-            };
-            var lblSht = new Label { Text = "шт.", Font = new Font("Segoe UI", 10), Location = new Point(inputX + 66, startY + 5 * rowH + 4), AutoSize = true };
+        _btnCancel = new Button
+        {
+            Text      = Strings.Get("Cancel"),
+            Font      = new Font("Segoe UI", 10),
+            Location  = new Point(270, btnY),
+            Size      = new Size(90, 32),
+            FlatStyle = FlatStyle.Flat,
+            Cursor    = Cursors.Hand
+        };
+        _btnCancel.Click += (s, e) => { DialogResult = DialogResult.Cancel; Close(); };
+        CancelButton      = _btnCancel;
 
-            // ── Срок годности ─────────────────────────────────
-            lblExpiry = MakeLabel("Срок годности:", 6);
-            dtpExpiry = new DateTimePicker
-            {
-                Font = new Font("Segoe UI", 10),
-                Location = new Point(inputX, startY + 6 * rowH),
-                Size = new Size(130, 24),
-                Format = DateTimePickerFormat.Short
-            };
-            chkNoExpiry = new CheckBox
-            {
-                Text = "Бессрочно",
-                Font = new Font("Segoe UI", 10),
-                Location = new Point(inputX + 140, startY + 6 * rowH + 3),
-                AutoSize = true
-            };
-            chkNoExpiry.CheckedChanged += (s, e) => dtpExpiry.Enabled = !chkNoExpiry.Checked;
+        Controls.AddRange(new Control[]
+        {
+            _lblArticle, _txtArticle, _lblArticleError,
+            _lblName, _txtName, _lblNameError,
+            _lblCategory, _cmbCategory,
+            _lblUnit, _cmbUnit,
+            _lblPrice, _nudPrice, lblRub,
+            _lblStock, _txtStock, lblPcs,
+            _lblExpiry, _dtpExpiry, _chkNoExpiry,
+            lblRequired, _btnSave, _btnCancel
+        });
+    }
 
-            // ── Required hint ─────────────────────────────────
-            lblRequired = new Label { Text = "*- обязательное поле", Font = new Font("Segoe UI", 8), ForeColor = Color.Gray, Location = new Point(labelX, startY + 7 * rowH + 5), AutoSize = true };
+    private void LoadCategories()
+    {
+        using var db = new AppDbContext();
+        var cats = db.Categories.OrderBy(c => c.Name).ToList();
+        _cmbCategory.Items.Clear();
+        foreach (var c in cats) _cmbCategory.Items.Add(c.Name);
+        if (_cmbCategory.Items.Count > 0) _cmbCategory.SelectedIndex = 0;
+    }
 
-            // ── Buttons ───────────────────────────────────────
-            int btnY = startY + 7 * rowH + 28;
-            btnSave = new Button
-            {
-                Text = "Сохранить",
-                Font = new Font("Segoe UI", 10, FontStyle.Bold),
-                Location = new Point(160, btnY),
-                Size = new Size(100, 32),
-                BackColor = Color.FromArgb(28, 42, 74),
-                ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat,
-                Cursor = Cursors.Hand
-            };
-            btnSave.FlatAppearance.BorderSize = 0;
-            btnSave.Click += BtnSave_Click;
-            this.AcceptButton = btnSave;
+    private void FillFields()
+    {
+        _txtArticle.Text  = _existing!.Article;
+        _txtName.Text     = _existing.Name;
+        _cmbCategory.Text = _existing.Category?.Name ?? string.Empty;
+        _cmbUnit.Text     = _existing.Unit;
+        _nudPrice.Value   = _existing.PurchasePrice;
+        _txtStock.Text    = _existing.Stock.ToString();
 
-            btnCancel = new Button
-            {
-                Text = "Отмена",
-                Font = new Font("Segoe UI", 10),
-                Location = new Point(270, btnY),
-                Size = new Size(90, 32),
-                FlatStyle = FlatStyle.Flat,
-                Cursor = Cursors.Hand
-            };
-            btnCancel.Click += (s, e) => { this.DialogResult = DialogResult.Cancel; this.Close(); };
-            this.CancelButton = btnCancel;
+        if (_existing.ExpiryDate.HasValue)
+            _dtpExpiry.Value = _existing.ExpiryDate.Value.ToDateTime(TimeOnly.MinValue);
+        else
+            _chkNoExpiry.Checked = true;
+    }
 
-            this.Controls.AddRange(new Control[]
-            {
-                lblArticle, txtArticle, lblArticleError,
-                lblName, txtName, lblNameError,
-                lblCategory, cmbCategory,
-                lblUnit, cmbUnit,
-                lblPrice, nudPrice, lblRub,
-                lblStock, txtStock, lblSht,
-                lblExpiry, dtpExpiry, chkNoExpiry,
-                lblRequired, btnSave, btnCancel
-            });
+    private void SetFieldError(TextBox txt, bool hasError)
+    {
+        txt.BackColor = hasError
+            ? Color.FromArgb(255, 220, 220)
+            : (txt.ReadOnly ? Color.FromArgb(220, 220, 220) : Color.White);
+    }
+
+    private void BtnSave_Click(object? sender, EventArgs e)
+    {
+        _lblArticleError.Visible = false;
+        _lblNameError.Visible    = false;
+        SetFieldError(_txtArticle, false);
+        SetFieldError(_txtName, false);
+
+        var valid = true;
+        if (string.IsNullOrWhiteSpace(_txtArticle.Text))
+        {
+            SetFieldError(_txtArticle, true);
+            _lblArticleError.Text    = Strings.RequiredField;
+            _lblArticleError.Visible = true;
+            valid = false;
         }
+        if (string.IsNullOrWhiteSpace(_txtName.Text))
+        {
+            SetFieldError(_txtName, true);
+            _lblNameError.Text    = Strings.RequiredField;
+            _lblNameError.Visible = true;
+            valid = false;
+        }
+        if (_cmbCategory.SelectedIndex < 0) valid = false;
+        if (!valid) return;
 
-        private void LoadCategories()
+        try
         {
             using var db = new AppDbContext();
-            var cats = db.Categories.OrderBy(c => c.Name).ToList();
-            cmbCategory.Items.Clear();
-            foreach (var c in cats) cmbCategory.Items.Add(c.Name);
-            if (cmbCategory.Items.Count > 0) cmbCategory.SelectedIndex = 0;
-        }
+            var category = db.Categories.FirstOrDefault(c => c.Name == _cmbCategory.SelectedItem!.ToString());
+            if (category == null) return;
 
-        private void FillFields()
-        {
-            txtArticle.Text = _existing!.Article;
-            txtName.Text = _existing.Name;
-            cmbCategory.Text = _existing.Category?.Name ?? "";
-            cmbUnit.Text = _existing.Unit;
-            nudPrice.Value = _existing.PurchasePrice;
-            txtStock.Text = _existing.Stock.ToString();
+            var expiry = _chkNoExpiry.Checked
+                ? (DateOnly?)null
+                : DateOnly.FromDateTime(_dtpExpiry.Value);
 
-            if (_existing.ExpiryDate.HasValue)
-                dtpExpiry.Value = _existing.ExpiryDate.Value.ToDateTime(TimeOnly.MinValue);
+            if (_existing == null)
+            {
+                var article = _txtArticle.Text.Trim();
+                if (db.Products.Any(p => p.Article == article))
+                {
+                    _lblArticleError.Text    = Strings.Product_ErrArticleExists;
+                    _lblArticleError.Visible = true;
+                    SetFieldError(_txtArticle, true);
+                    return;
+                }
+
+                db.Products.Add(new Product
+                {
+                    Article       = article,
+                    Name          = _txtName.Text.Trim(),
+                    CategoryId    = category.Id,
+                    Unit          = _cmbUnit.SelectedItem!.ToString()!,
+                    PurchasePrice = _nudPrice.Value,
+                    Stock         = int.TryParse(_txtStock.Text, out var stock) ? stock : 0,
+                    ExpiryDate    = expiry
+                });
+                _log.Info("Добавлен товар: {0}", article);
+            }
             else
-                chkNoExpiry.Checked = true;
-        }
-
-        private void SetFieldError(TextBox txt, bool hasError)
-        {
-            txt.BackColor = hasError
-                ? Color.FromArgb(255, 220, 220)
-                : (txt.ReadOnly ? Color.FromArgb(220, 220, 220) : Color.White);
-        }
-
-        private void BtnSave_Click(object? sender, EventArgs e)
-        {
-            lblArticleError.Visible = false;
-            lblNameError.Visible = false;
-            SetFieldError(txtArticle, false);
-            SetFieldError(txtName, false);
-
-            bool valid = true;
-            if (string.IsNullOrWhiteSpace(txtArticle.Text)) { SetFieldError(txtArticle, true); lblArticleError.Text = "Поле обязательно для заполнения"; lblArticleError.Visible = true; valid = false; }
-            if (string.IsNullOrWhiteSpace(txtName.Text)) { SetFieldError(txtName, true); lblNameError.Text = "Поле обязательно для заполнения"; lblNameError.Visible = true; valid = false; }
-            if (cmbCategory.SelectedIndex < 0) { valid = false; }
-            if (!valid) return;
-
-            try
             {
-                using var db = new AppDbContext();
-                var category = db.Categories.FirstOrDefault(c => c.Name == cmbCategory.SelectedItem!.ToString());
-                if (category == null) return;
-
-                DateOnly? expiry = chkNoExpiry.Checked
-                    ? null
-                    : DateOnly.FromDateTime(dtpExpiry.Value);
-
-                if (_existing == null)
-                {
-                    if (db.Products.Any(p => p.Article == txtArticle.Text.Trim()))
-                    {
-                        lblArticleError.Text = "Артикул уже существует";
-                        lblArticleError.Visible = true;
-                        SetFieldError(txtArticle, true);
-                        return;
-                    }
-                    db.Products.Add(new Product
-                    {
-                        Article = txtArticle.Text.Trim(),
-                        Name = txtName.Text.Trim(),
-                        CategoryId = category.Id,
-                        Unit = cmbUnit.SelectedItem!.ToString()!,
-                        PurchasePrice = nudPrice.Value,
-                        Stock = int.TryParse(txtStock.Text, out int stock) ? stock : 0,
-                        ExpiryDate = expiry
-                    });
-                }
-                else
-                {
-                    var p = db.Products.Find(_existing.Id);
-                    if (p == null) return;
-                    p.Name = txtName.Text.Trim();
-                    p.CategoryId = category.Id;
-                    p.Unit = cmbUnit.SelectedItem!.ToString()!;
-                    p.PurchasePrice = nudPrice.Value;
-                    p.ExpiryDate = expiry;
-                }
-
-                db.SaveChanges();
-                this.DialogResult = DialogResult.OK;
-                this.Close();
+                var p = db.Products.Find(_existing.Id);
+                if (p == null) return;
+                p.Name          = _txtName.Text.Trim();
+                p.CategoryId    = category.Id;
+                p.Unit          = _cmbUnit.SelectedItem!.ToString()!;
+                p.PurchasePrice = _nudPrice.Value;
+                p.ExpiryDate    = expiry;
+                _log.Info("Обновлён товар: {0}", p.Article);
             }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Ошибка: {ex.Message}", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
+
+            db.SaveChanges();
+            DialogResult = DialogResult.OK;
+            Close();
+        }
+        catch (Exception ex)
+        {
+            _log.Error(ex, "Ошибка сохранения товара");
+            MessageBox.Show($"{Strings.Error}: {ex.Message}",
+                Strings.Error, MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 }

@@ -1,90 +1,138 @@
-using Microsoft.EntityFrameworkCore;
+using GreenStock.Logging;
 using GreenStock.Models;
+using Microsoft.EntityFrameworkCore;
+using NLog;
 
-namespace GreenStock.Data
+namespace GreenStock.Data;
+
+/// <summary>
+/// Контекст базы данных GreenStock.
+/// Поддерживает два режима создания:
+/// — через DI (передаётся <see cref="DbContextOptions{TContext}"/>);
+/// — напрямую из форм (используется соединение из <see cref="DbConfig.ConnectionString"/>).
+/// </summary>
+public class AppDbContext : DbContext
 {
-    public class AppDbContext : DbContext
+    private static readonly ILogger _log = AppLogger.For<AppDbContext>();
+
+    /// <summary>
+    /// Таблица пользователей.
+    /// </summary>
+    public DbSet<User> Users => Set<User>();
+
+    /// <summary>
+    /// Таблица категорий.
+    /// </summary>
+    public DbSet<Category> Categories => Set<Category>();
+
+    /// <summary>
+    /// Таблица товаров.
+    /// </summary>
+    public DbSet<Product> Products => Set<Product>();
+
+    /// <summary>
+    /// Таблица отгрузок.
+    /// </summary>
+    public DbSet<Shipment> Shipments => Set<Shipment>();
+
+    /// <summary>
+    /// Таблица позиций отгрузок.
+    /// </summary>
+    public DbSet<ShipmentItem> ShipmentItems => Set<ShipmentItem>();
+
+    /// <summary>
+    /// Инициализирует контекст с явными параметрами (используется при DI / тестах).
+    /// </summary>
+    /// <param name="options">Параметры подключения EF Core.</param>
+    public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
+
+    /// <summary>
+    /// Инициализирует контекст с параметрами по умолчанию из <see cref="DbConfig.ConnectionString"/>.
+    /// Используется формами напрямую: <c>using var db = new AppDbContext();</c>
+    /// </summary>
+    public AppDbContext() { }
+
+    /// <inheritdoc />
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
-        public DbSet<User> Users { get; set; }
-        public DbSet<Category> Categories { get; set; }
-        public DbSet<Product> Products { get; set; }
-        public DbSet<Shipment> Shipments { get; set; }
-        public DbSet<ShipmentItem> ShipmentItems { get; set; }
-
-        protected override void OnConfiguring(DbContextOptionsBuilder options)
+        if (!optionsBuilder.IsConfigured)
         {
-            options.UseNpgsql(
-                "Host=localhost;Database=greenstock;Username=postgres;Password=12345"
-            );
+            if (DbConfig.UseInMemory)
+            {
+                _log.Debug("AppDbContext: InMemory-режим (тесты)");
+                optionsBuilder.UseInMemoryDatabase(DbConfig.InMemoryDbName);
+            }
+            else
+            {
+                _log.Debug("AppDbContext: конфигурация из DbConfig.ConnectionString");
+                optionsBuilder.UseNpgsql(DbConfig.ConnectionString);
+            }
         }
+    }
 
-        protected override void OnModelCreating(ModelBuilder modelBuilder)
+    /// <summary>
+    /// Настройка модели базы данных.
+    /// </summary>
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+
+        // ── User ──────────────────────────────────────────────────────────────
+        modelBuilder.Entity<User>(e =>
         {
-            modelBuilder.Entity<User>(entity =>
-            {
-                entity.ToTable("users");
-                entity.HasKey(e => e.Id);
-                entity.Property(e => e.Id).HasColumnName("id");
-                entity.Property(e => e.Login).HasColumnName("login").IsRequired();
-                entity.Property(e => e.PasswordHash).HasColumnName("password_hash").IsRequired();
-                entity.Property(e => e.Role).HasColumnName("role").IsRequired();
-                entity.HasIndex(e => e.Login).IsUnique();
-            });
+            e.ToTable("users").HasKey(u => u.Id);
+            e.Property(u => u.Id).HasColumnType("uuid").ValueGeneratedOnAdd();
 
-            modelBuilder.Entity<Category>(entity =>
-            {
-                entity.ToTable("categories");
-                entity.HasKey(e => e.Id);
-                entity.Property(e => e.Id).HasColumnName("id");
-                entity.Property(e => e.Name).HasColumnName("name").IsRequired();
-            });
+            // UserRole enum хранится как строка в колонке role
+            e.Property(u => u.Role)
+             .HasConversion<string>()
+             .HasColumnName("role");
 
-            modelBuilder.Entity<Product>(entity =>
-            {
-                entity.ToTable("products");
-                entity.HasKey(e => e.Id);
-                entity.Property(e => e.Id).HasColumnName("id");
-                entity.Property(e => e.Article).HasColumnName("article").IsRequired();
-                entity.Property(e => e.Name).HasColumnName("name").IsRequired();
-                entity.Property(e => e.CategoryId).HasColumnName("category_id");
-                entity.Property(e => e.Unit).HasColumnName("unit").IsRequired();
-                entity.Property(e => e.PurchasePrice).HasColumnName("purchase_price");
-                entity.Property(e => e.Stock).HasColumnName("stock");
-                entity.Property(e => e.ExpiryDate).HasColumnName("expiry_date");
-                entity.HasIndex(e => e.Article).IsUnique();
-                entity.HasOne(e => e.Category)
-                      .WithMany(c => c.Products)
-                      .HasForeignKey(e => e.CategoryId);
-            });
+            e.HasMany(u => u.Shipments)
+             .WithOne(s => s.CreatedByUser)
+             .HasForeignKey(s => s.CreatedBy);
+        });
 
-            modelBuilder.Entity<Shipment>(entity =>
-            {
-                entity.ToTable("shipments");
-                entity.HasKey(e => e.Id);
-                entity.Property(e => e.Id).HasColumnName("id");
-                entity.Property(e => e.CreatedBy).HasColumnName("created_by");
-                entity.Property(e => e.CreatedAt).HasColumnName("created_at");
-                entity.Property(e => e.Recipient).HasColumnName("recipient");
-                entity.HasOne(e => e.User)
-                      .WithMany(u => u.Shipments)
-                      .HasForeignKey(e => e.CreatedBy);
-            });
+        // ── Category ──────────────────────────────────────────────────────────
+        modelBuilder.Entity<Category>(e =>
+        {
+            e.ToTable("categories").HasKey(c => c.Id);
+            e.Property(c => c.Id).HasColumnType("uuid").ValueGeneratedOnAdd();
 
-            modelBuilder.Entity<ShipmentItem>(entity =>
-            {
-                entity.ToTable("shipment_items");
-                entity.HasKey(e => e.Id);
-                entity.Property(e => e.Id).HasColumnName("id");
-                entity.Property(e => e.ShipmentId).HasColumnName("shipment_id");
-                entity.Property(e => e.ProductId).HasColumnName("product_id");
-                entity.Property(e => e.Quantity).HasColumnName("quantity");
-                entity.HasOne(e => e.Shipment)
-                      .WithMany(s => s.ShipmentItems)
-                      .HasForeignKey(e => e.ShipmentId);
-                entity.HasOne(e => e.Product)
-                      .WithMany(p => p.ShipmentItems)
-                      .HasForeignKey(e => e.ProductId);
-            });
-        }
+            e.HasMany(c => c.Products)
+             .WithOne(p => p.Category)
+             .HasForeignKey(p => p.CategoryId);
+        });
+
+        // ── Product ───────────────────────────────────────────────────────────
+        modelBuilder.Entity<Product>(e =>
+        {
+            e.ToTable("products").HasKey(p => p.Id);
+            e.Property(p => p.Id).HasColumnType("uuid").ValueGeneratedOnAdd();
+            e.Property(p => p.CategoryId).HasColumnType("uuid");
+            e.Property(p => p.ExpiryDate).HasColumnName("expiry_date").IsRequired(false);
+        });
+
+        // ── Shipment ──────────────────────────────────────────────────────────
+        modelBuilder.Entity<Shipment>(e =>
+        {
+            e.ToTable("shipments").HasKey(s => s.Id);
+            e.Property(s => s.Id).HasColumnType("uuid").ValueGeneratedOnAdd();
+            e.Property(s => s.CreatedBy).HasColumnType("uuid");
+            e.Property(s => s.Recipient).HasColumnName("recipient").HasMaxLength(200);
+
+            e.HasMany(s => s.Items)
+             .WithOne(i => i.Shipment)
+             .HasForeignKey(i => i.ShipmentId);
+        });
+
+        // ── ShipmentItem ──────────────────────────────────────────────────────
+        modelBuilder.Entity<ShipmentItem>(e =>
+        {
+            e.ToTable("shipment_items").HasKey(i => i.Id);
+            e.Property(i => i.Id).HasColumnType("uuid").ValueGeneratedOnAdd();
+            e.Property(i => i.ShipmentId).HasColumnType("uuid");
+            e.Property(i => i.ProductId).HasColumnType("uuid");
+        });
     }
 }
