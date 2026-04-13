@@ -54,8 +54,8 @@ CREATE TABLE IF NOT EXISTS shipment_items (
 --   admin   → Admin123
 --   sklad1  → Pass1234
 INSERT INTO users (login, password_hash, role) VALUES
-    ('admin',  '$2a$11$KzQy1KjxP9bVkL8mN3oRuOWq1tYcXvZ5eA6dF0gH2iJ4lM7nP8qRs', 'Admin'),
-    ('sklad1', '$2a$11$AbCdEfGhIjKlMnOpQrStUuVwXyZ0123456789abcdefghijklmnopq', 'Kladovshik')
+    ('admin',  '$2a$12$jU2OuZ9ltQMXVhotKKxhUelfjOH7fAiX9f8BwlbMKFpBl049CH/qO', 'Admin'),
+    ('sklad1', '$2a$11$PW4eh3adCFzsumNXlU/.j.MoJNK5dfbbLjC0V0GQRMxt1V/3VukLG', 'Kladovshik')
 ON CONFLICT (login) DO NOTHING;
 
 -- Categories

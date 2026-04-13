@@ -14,26 +14,80 @@ public static class Strings
     /// <summary>
     /// Менеджер ресурсов для текущей культуры.
     /// </summary>
-    private static ResourceManager Manager =>
-        _manager ??= new ResourceManager(
-            "GreenStock.Resources.Strings.ru",
-            typeof(Strings).Assembly);
+    private static ResourceManager Manager
+    {
+        get
+        {
+            if (_manager == null)
+            {
+                try
+                {
+                    // Пробуем загрузить ресурсы с именем "GreenStock.Resources.Strings.ru"
+                    _manager = new ResourceManager(
+                        "GreenStock.Resources.Strings.ru",
+                        typeof(Strings).Assembly);
+
+                    // Проверяем, что ресурсы действительно загружены
+                    var testString = _manager.GetString("Error", CultureInfo.CurrentUICulture);
+                    if (testString != null)
+                    {
+                        return _manager;
+                    }
+                }
+                catch
+                {
+                    // Если не удалось загрузить, продолжаем
+                }
+
+                // Fallback: создаём пустой менеджер, который просто возвращает ключи
+                try
+                {
+                    _manager = new ResourceManager(typeof(Strings));
+                }
+                catch
+                {
+                    _manager = new ResourceManager("GreenStock.Resources.Strings", typeof(Strings).Assembly);
+                }
+            }
+
+            return _manager;
+        }
+    }
 
     /// <summary>
     /// Возвращает локализованную строку по ключу.
     /// Если ключ не найден — возвращает сам ключ.
     /// </summary>
     /// <param name="key">Ключ ресурса.</param>
-    public static string Get(string key) =>
-        Manager.GetString(key, CultureInfo.CurrentUICulture) ?? key;
+    public static string Get(string key)
+    {
+        try
+        {
+            var result = Manager.GetString(key, CultureInfo.CurrentUICulture);
+            return result ?? key;
+        }
+        catch
+        {
+            return key;
+        }
+    }
 
     /// <summary>
     /// Возвращает форматированную локализованную строку.
     /// </summary>
     /// <param name="key">Ключ ресурса.</param>
     /// <param name="args">Аргументы форматирования.</param>
-    public static string Get(string key, params object[] args) =>
-        string.Format(Get(key), args);
+    public static string Get(string key, params object[] args)
+    {
+        try
+        {
+            return string.Format(Get(key), args);
+        }
+        catch
+        {
+            return key;
+        }
+    }
 
     // ── Common ──────────────────────────────────────────────────────────────────
 

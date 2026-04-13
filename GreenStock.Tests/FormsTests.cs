@@ -529,10 +529,9 @@ namespace GreenStock.Tests
             var hash      = BCrypt.Net.BCrypt.HashPassword(password);
             Assert.That(BCrypt.Net.BCrypt.Verify(wrongPass, hash), Is.False);
         }
-<<<<<<< HEAD
-=======
 
->>>>>>> 1813e5fe76405ea6e432927803b55d92e2853c16
+
+
         #endregion
         // ============================================================================
         // ГРУППА 5: Отгрузки, История и Категории (TC-13..TC-20)
@@ -573,15 +572,15 @@ namespace GreenStock.Tests
             product.Stock = 5;
             db.SaveChanges();
 
-            var warehouseUser = new User { Id = 2, Login = "sklad1", Role = "Kladovshik" };
+            var warehouseUser = new User { Login = "sklad1", Role = UserRole.Kladovshik };
             var form = new ShipmentForm(warehouseUser);
 
-            var txtRecipient = GetPrivateField<TextBox>(form, "txtRecipient");
-            var cmbProduct = GetPrivateField<ComboBox>(form, "cmbProduct");
-            var nudQty = GetPrivateField<NumericUpDown>(form, "nudQty");
-            var btnAddRow = GetPrivateField<Button>(form, "btnAddRow");
-            var btnConfirm = GetPrivateField<Button>(form, "btnConfirm");
-            var lblWarning = GetPrivateField<Label>(form, "lblWarning");
+            var txtRecipient = GetPrivateField<TextBox>(form, "_txtRecipient");
+            var cmbProduct = GetPrivateField<ComboBox>(form, "_cmbProduct");
+            var nudQty = GetPrivateField<NumericUpDown>(form, "_nudQty");
+            var btnAddRow = GetPrivateField<Button>(form, "_btnAddRow");
+            var btnConfirm = GetPrivateField<Button>(form, "_btnConfirm");
+            var lblWarning = GetPrivateField<Label>(form, "_lblWarning");
 
             txtRecipient.Text = "ООО Тест";
             cmbProduct.SelectedIndex = 0;
@@ -606,15 +605,15 @@ namespace GreenStock.Tests
         public void TC15_NoRecipient_ShowsError()
         {
             // Arrange
-            var warehouseUser = new User { Id = 2, Login = "sklad1", Role = "Kladovshik" };
+            var warehouseUser = new User { Login = "sklad1", Role = UserRole.Kladovshik };
             var form = new ShipmentForm(warehouseUser);
 
-            var txtRecipient = GetPrivateField<TextBox>(form, "txtRecipient");
-            var cmbProduct = GetPrivateField<ComboBox>(form, "cmbProduct");
-            var nudQty = GetPrivateField<NumericUpDown>(form, "nudQty");
-            var btnAddRow = GetPrivateField<Button>(form, "btnAddRow");
-            var btnConfirm = GetPrivateField<Button>(form, "btnConfirm");
-            var lblRecipientError = GetPrivateField<Label>(form, "lblRecipientError");
+            var txtRecipient = GetPrivateField<TextBox>(form, "_txtRecipient");
+            var cmbProduct = GetPrivateField<ComboBox>(form, "_cmbProduct");
+            var nudQty = GetPrivateField<NumericUpDown>(form, "_nudQty");
+            var btnAddRow = GetPrivateField<Button>(form, "_btnAddRow");
+            var btnConfirm = GetPrivateField<Button>(form, "_btnConfirm");
+            var lblRecipientError = GetPrivateField<Label>(form, "_lblRecipientError");
 
             txtRecipient.Text = ""; // Пусто
             cmbProduct.SelectedIndex = 0;
