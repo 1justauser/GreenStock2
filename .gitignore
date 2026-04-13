@@ -15,7 +15,8 @@ obj/
 
 # ─── Конфигурация с паролями ────────────────────────────────
 
-GreenStock/Data/AppDbContext.cs
+GreenStock2/Data/AppDbContext.cs
+GreenStock2/GreenStock.Tests/GreenStock.Tests.csproj
 
 # OS
 .DS_Store
