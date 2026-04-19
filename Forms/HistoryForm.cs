@@ -1,6 +1,6 @@
 using GreenStock.Data;
 using GreenStock.Logging;
-using GreenStock.Resources;
+using GreenStock.Services;
 using Microsoft.EntityFrameworkCore;
 using NLog;
 
@@ -65,7 +65,7 @@ public class HistoryForm : Form
         _dgvShipments.SelectionChanged         += DgvShipments_SelectionChanged;
 
         _lblItems = new Label
-            { Text = Strings.History_LabelItems("—"), Font = new Font("Segoe UI", 10), Location = new Point(10, 208), AutoSize = true };
+            { Text = Strings.History_LabelItems(0), Font = new Font("Segoe UI", 10), Location = new Point(10, 208), AutoSize = true };
         _sepItems = new Panel
             { Location = new Point(10, 228), Size = new Size(715, 1), Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right, BackColor = Color.Silver };
 
@@ -96,22 +96,18 @@ public class HistoryForm : Form
     {
         try
         {
-            using var db = new AppDbContext();
-            var shipments = db.Shipments
-                .Include(s => s.CreatedByUser)   // правильное имя навигационного свойства
-                .Include(s => s.Items)            // правильное имя коллекции позиций
-                .OrderByDescending(s => s.CreatedAt)
-                .ToList();
+            var shipments = HistoryService.GetAllShipments();
 
             _log.Debug("История: загружено {0} накладных", shipments.Count);
 
             _dgvShipments.DataSource = shipments.Select((s, idx) => new
             {
                 N           = idx + 1,
-                Дата_Время  = s.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm"),
-                Кто_оформил = s.CreatedByUser.Login,
+                Дата_Время  = s.CreatedAt,
+                Кто_оформил = s.CreatedBy,
                 Получатель  = s.Recipient,
-                Позиций     = s.Items.Count,
+                Позиций     = s.ItemCount,
+                Сумма       = $"{s.TotalAmount:N2} ₽",
                 _Id         = s.Id   // Guid
             }).ToList();
 
@@ -119,6 +115,7 @@ public class HistoryForm : Form
             if (_dgvShipments.Columns.Contains("Дата_Время"))  _dgvShipments.Columns["Дата_Время"]!.HeaderText  = Strings.History_ColDate;
             if (_dgvShipments.Columns.Contains("Кто_оформил")) _dgvShipments.Columns["Кто_оформил"]!.HeaderText = Strings.History_ColWho;
             if (_dgvShipments.Columns.Contains("Получатель"))  _dgvShipments.Columns["Получатель"]!.HeaderText  = Strings.History_ColRecipient;
+            if (_dgvShipments.Columns.Contains("Сумма"))       _dgvShipments.Columns["Сумма"]!.HeaderText       = "Сумма";
         }
         catch (Exception ex)
         {
@@ -134,23 +131,34 @@ public class HistoryForm : Form
 
         // ID теперь Guid
         if (_dgvShipments.CurrentRow.Cells["_Id"].Value is not Guid shipmentId) return;
-        _lblItems.Text = Strings.History_LabelItems(shipmentId.ToString()[..8] + "…");
+        var shipmentNumber = _dgvShipments.CurrentRow.Index + 1;
+        _lblItems.Text = Strings.History_LabelItems(shipmentNumber);
 
-        using var db = new AppDbContext();
-        var items = db.ShipmentItems
-            .Include(i => i.Product)
-            .Where(i => i.ShipmentId == shipmentId)
-            .ToList();
-
-        _dgvItems.DataSource = items.Select(i => new
+        try
         {
-            Товар      = i.Product.Name,
-            Артикул    = i.Product.Article,
-            Ед_изм     = i.Product.Unit,
-            Количество = i.Quantity
-        }).ToList();
+            var items = HistoryService.GetShipmentItems(shipmentId);
 
-        if (_dgvItems.Columns.Contains("Ед_изм"))
-            _dgvItems.Columns["Ед_изм"]!.HeaderText = Strings.Catalog_ColUnit;
+            _dgvItems.DataSource = items.Select(i => new
+            {
+                Товар      = i.ProductName,
+                Артикул    = i.Article,
+                Ед_изм     = i.Unit,
+                Количество = i.Quantity,
+                Цена       = $"{i.Price:N2} ₽",
+                Сумма      = $"{i.Total:N2} ₽"
+            }).ToList();
+
+            if (_dgvItems.Columns.Contains("Товар"))      _dgvItems.Columns["Товар"]!.HeaderText      = Strings.Catalog_ColName;
+            if (_dgvItems.Columns.Contains("Артикул"))    _dgvItems.Columns["Артикул"]!.HeaderText    = Strings.Catalog_ColArticle;
+            if (_dgvItems.Columns.Contains("Ед_изм"))     _dgvItems.Columns["Ед_изм"]!.HeaderText     = Strings.Catalog_ColUnit;
+            if (_dgvItems.Columns.Contains("Цена"))       _dgvItems.Columns["Цена"]!.HeaderText       = "Цена";
+            if (_dgvItems.Columns.Contains("Сумма"))      _dgvItems.Columns["Сумма"]!.HeaderText      = "Сумма";
+        }
+        catch (Exception ex)
+        {
+            _log.Error(ex, "Ошибка загрузки позиций отгрузки");
+            MessageBox.Show($"{Strings.Error}:\n{ex.Message}",
+                Strings.Error, MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
     }
 }

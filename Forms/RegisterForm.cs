@@ -2,7 +2,6 @@ using GreenStock.Data;
 using System.ComponentModel;
 using GreenStock.Logging;
 using GreenStock.Models;
-using GreenStock.Resources;
 using NLog;
 
 namespace GreenStock.Forms;
@@ -106,7 +105,7 @@ public class RegisterForm : Form
 
         _btnBack = new Button
         {
-            Text      = Strings.Get("Back"),
+            Text      = Strings.Back,
             Font      = new Font("Segoe UI", 10),
             Location  = new Point(275, 255),
             Size      = new Size(90, 34),

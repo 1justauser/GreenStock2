@@ -2,7 +2,6 @@ using GreenStock.Data;
 using System.ComponentModel;
 using GreenStock.Logging;
 using GreenStock.Models;
-using GreenStock.Resources;
 using NLog;
 
 namespace GreenStock.Forms;

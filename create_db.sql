@@ -40,10 +40,11 @@ CREATE TABLE IF NOT EXISTS shipments (
 );
 
 CREATE TABLE IF NOT EXISTS shipment_items (
-    id          UUID NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
-    shipment_id UUID NOT NULL REFERENCES shipments(id) ON DELETE CASCADE,
-    product_id  UUID NOT NULL REFERENCES products(id),
-    quantity    INT  NOT NULL
+    id          UUID            NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
+    shipment_id UUID            NOT NULL REFERENCES shipments(id) ON DELETE CASCADE,
+    product_id  UUID            NOT NULL REFERENCES products(id),
+    quantity    INT             NOT NULL,
+    price       NUMERIC(10, 2)  NOT NULL DEFAULT 0
 );
 
 -- ============================================================
@@ -86,6 +87,27 @@ ON CONFLICT (article) DO NOTHING;
 
 INSERT INTO products (article, name, category_id, unit, purchase_price, stock, expiry_date)
 SELECT 'SOIL-012', 'Грунт универсальный', id, 'кг',   55.00, 200, NULL        FROM categories WHERE name = 'Грунты и субстраты' LIMIT 1
+ON CONFLICT (article) DO NOTHING;
+
+-- Additional test products for import
+INSERT INTO products (article, name, category_id, unit, purchase_price, stock, expiry_date)
+SELECT 'TREE-101', 'Ель колючая 1м',      id, 'шт',  500.00, 0,   NULL        FROM categories WHERE name = 'Растения садовые'  LIMIT 1
+ON CONFLICT (article) DO NOTHING;
+
+INSERT INTO products (article, name, category_id, unit, purchase_price, stock, expiry_date)
+SELECT 'VEG-088', 'Огурец Апрельский',    id, 'пак',  65.00, 0,   '2027-12-31' FROM categories WHERE name = 'Семена овощей'     LIMIT 1
+ON CONFLICT (article) DO NOTHING;
+
+INSERT INTO products (article, name, category_id, unit, purchase_price, stock, expiry_date)
+SELECT 'FLOWER-05', 'Гвоздика садовая',  id, 'пак',  40.00, 0,   '2026-06-15' FROM categories WHERE name = 'Семена цветов'     LIMIT 1
+ON CONFLICT (article) DO NOTHING;
+
+INSERT INTO products (article, name, category_id, unit, purchase_price, stock, expiry_date)
+SELECT 'COMPOST-22', 'Компост органический 5л', id, 'л',   120.00, 0, NULL  FROM categories WHERE name = 'Грунты и субстраты' LIMIT 1
+ON CONFLICT (article) DO NOTHING;
+
+INSERT INTO products (article, name, category_id, unit, purchase_price, stock, expiry_date)
+SELECT 'PHOS-015', 'Суперфосфат простой',  id, 'кг',   95.00, 0,  NULL        FROM categories WHERE name = 'Удобрения'          LIMIT 1
 ON CONFLICT (article) DO NOTHING;
 
 -- ============================================================

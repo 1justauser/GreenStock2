@@ -1,5 +1,3 @@
-using GreenStock.Resources;
-
 namespace GreenStock.Forms;
 
 /// <summary>
@@ -66,7 +64,7 @@ public class DeleteConfirmForm : Form
 
         _btnYes = new Button
         {
-            Text         = Strings.Get("Yes"),
+            Text         = Strings.Yes,
             Font         = new Font("Segoe UI", 10, FontStyle.Bold),
             Location     = new Point(240, 170),
             Size         = new Size(70, 34),
@@ -80,7 +78,7 @@ public class DeleteConfirmForm : Form
 
         _btnNo = new Button
         {
-            Text         = Strings.Get("No"),
+            Text         = Strings.No,
             Font         = new Font("Segoe UI", 10),
             Location     = new Point(325, 170),
             Size         = new Size(70, 34),

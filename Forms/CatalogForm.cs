@@ -1,7 +1,7 @@
 using GreenStock.Data;
 using GreenStock.Logging;
 using GreenStock.Models;
-using GreenStock.Resources;
+using GreenStock.Services;
 using Microsoft.EntityFrameworkCore;
 using NLog;
 
@@ -23,6 +23,11 @@ public class CatalogForm : Form
     private ToolStripMenuItem _menuCategories = null!;
     private ToolStripMenuItem _menuShipments  = null!;
     private ToolStripMenuItem _menuHistory    = null!;
+    private ToolStripMenuItem _menuSettings   = null!;
+    private ToolStripMenuItem _menuCurrency   = null!;
+    private ToolStripMenuItem _menuRub        = null!;
+    private ToolStripMenuItem _menuUsd        = null!;
+    private ToolStripMenuItem _menuEur        = null!;
     private ToolStripMenuItem _menuExit       = null!;
     private Label             _lblSearch      = null!;
     private Label             _lblCategory    = null!;
@@ -67,15 +72,49 @@ public class CatalogForm : Form
         _menuCategories = new ToolStripMenuItem(Strings.Catalog_MenuCategories) { ForeColor = Color.White };
         _menuShipments  = new ToolStripMenuItem(Strings.Catalog_MenuShipments)  { ForeColor = Color.White };
         _menuHistory    = new ToolStripMenuItem(Strings.Catalog_MenuHistory)    { ForeColor = Color.White };
+        _menuSettings   = new ToolStripMenuItem("Настройки")                     { ForeColor = Color.White, BackColor = Color.FromArgb(28, 42, 74) };
+        _menuCurrency   = new ToolStripMenuItem("Валюта")                        { ForeColor = Color.White, BackColor = Color.FromArgb(28, 42, 74) };
+
+        _menuRub = new ToolStripMenuItem("₽ RUB (Российский рубль)") 
+        { 
+            ForeColor = Color.White,
+            BackColor = Color.FromArgb(28, 42, 74)
+        };
+        _menuUsd = new ToolStripMenuItem("$ USD (Американский доллар)") 
+        { 
+            ForeColor = Color.White,
+            BackColor = Color.FromArgb(28, 42, 74)
+        };
+        _menuEur = new ToolStripMenuItem("€ EUR (Евро)") 
+        { 
+            ForeColor = Color.White,
+            BackColor = Color.FromArgb(28, 42, 74)
+        };
+
+        _menuRub.Click += (s, e) => { CurrencyService.SetCurrency(Currency.RUB); LoadData(); };
+        _menuUsd.Click += (s, e) => { CurrencyService.SetCurrency(Currency.USD); LoadData(); };
+        _menuEur.Click += (s, e) => { CurrencyService.SetCurrency(Currency.EUR); LoadData(); };
+
+        _menuCurrency.DropDownItems.AddRange(new ToolStripItem[] { _menuRub, _menuUsd, _menuEur });
+        _menuSettings.DropDownItems.Add(_menuCurrency);
+
         _menuExit       = new ToolStripMenuItem(Strings.Catalog_MenuExit)       { ForeColor = Color.White };
 
         _menuCategories.Click += (s, e) => OpenCategoryForm();
         _menuShipments.Click  += (s, e) => OpenShipmentForm();
         _menuHistory.Click    += (s, e) => OpenHistoryForm();
+
+        // Добавляем кнопку для поставок
+        var menuSupplies = new ToolStripMenuItem("Поставки") { ForeColor = Color.White };
+        menuSupplies.Click += (s, e) => OpenSuppliesForm();
+
+        var menuReports = new ToolStripMenuItem("Отчеты") { ForeColor = Color.White };
+        menuReports.Click += (s, e) => OpenReportsForm();
+
         _menuExit.Click       += (s, e) => Close();
 
         _menuStrip.Items.AddRange(new ToolStripItem[]
-            { _menuCatalog, _menuCategories, _menuShipments, _menuHistory, _menuExit });
+            { _menuCatalog, _menuCategories, _menuShipments, _menuHistory, menuSupplies, menuReports, _menuSettings, _menuExit });
         MainMenuStrip = _menuStrip;
 
         // ── Search row ────────────────────────────────────────
@@ -160,6 +199,7 @@ public class CatalogForm : Form
         _dgvProducts.ColumnHeadersDefaultCellStyle.ForeColor = Color.White;
         _dgvProducts.ColumnHeadersDefaultCellStyle.Font      = new Font("Segoe UI", 10, FontStyle.Bold);
         _dgvProducts.EnableHeadersVisualStyles = false;
+        _dgvProducts.CellFormatting += DgvProducts_CellFormatting;
 
         _lblCount = new Label
         {
@@ -204,7 +244,7 @@ public class CatalogForm : Form
 
             var categories = db.Categories.OrderBy(c => c.Name).ToList();
             _cmbCategory.Items.Clear();
-            _cmbCategory.Items.Add(Strings.Catalog_AllCategories);
+            _cmbCategory.Items.Add("Все");
             foreach (var cat in categories) _cmbCategory.Items.Add(cat.Name);
             if (_cmbCategory.SelectedIndex < 0) _cmbCategory.SelectedIndex = 0;
 
@@ -215,45 +255,66 @@ public class CatalogForm : Form
         catch (Exception ex)
         {
             _log.Error(ex, "Ошибка загрузки каталога");
-            MessageBox.Show($"{Strings.Catalog_ErrLoading}\n{ex.Message}",
-                Strings.Error, MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MessageBox.Show($"Ошибка загрузки:\n{ex.Message}",
+                "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    /// <summary>
+    /// Обработчик форматирования ячеек: конвертирует цены в выбранную валюту и выделяет истёкшие товары.
+    /// </summary>
+    private void DgvProducts_CellFormatting(object sender, DataGridViewCellFormattingEventArgs e)
+    {
+        if (_dgvProducts.DataSource == null) return;
+
+        var row = _dgvProducts.Rows[e.RowIndex];
+        var rowData = (dynamic?)_dgvProducts.Rows[e.RowIndex].DataBoundItem;
+
+        if (rowData != null && rowData._IsExpired)
+        {
+            e.CellStyle.BackColor = Color.FromArgb(255, 200, 200);
+            e.CellStyle.ForeColor = Color.FromArgb(139, 0, 0);
         }
     }
 
     private void FilterGrid()
     {
         var search   = _txtSearch.Text.Trim().ToLower();
-        var category = _cmbCategory.SelectedItem?.ToString() ?? Strings.Catalog_AllCategories;
+        var category = _cmbCategory.SelectedItem?.ToString() ?? "Все";
+        var today    = DateOnly.FromDateTime(DateTime.Now);
 
         var filtered = _allProducts.AsEnumerable();
         if (!string.IsNullOrEmpty(search))
             filtered = filtered.Where(p =>
                 p.Article.ToLower().Contains(search) ||
                 p.Name.ToLower().Contains(search));
-        if (category != Strings.Catalog_AllCategories)
+        if (category != "Все")
             filtered = filtered.Where(p => p.Category.Name == category);
 
         var list = filtered.ToList();
+        var currencySymbol = CurrencyService.GetSymbol(CurrencyService.CurrentCurrency);
         _dgvProducts.DataSource = list.Select(p => new
         {
             Артикул       = p.Article,
             Название      = p.Name,
             Категория     = p.Category.Name,
             Ед_изм        = p.Unit,
-            Цена_руб      = p.PurchasePrice,
+            Цена          = CurrencyService.Format(CurrencyService.Convert(p.PurchasePrice, Currency.RUB, CurrencyService.CurrentCurrency)),
             Остаток       = p.Stock,
             Срок_годности = p.ExpiryDate.HasValue
-                ? p.ExpiryDate.Value.ToString("dd.MM.yyyy")
-                : Strings.Catalog_Perpetual,
-            _Id = p.Id
+                ? (p.ExpiryDate.Value < today ? $"{p.ExpiryDate.Value:dd.MM.yyyy} (ИСТЁК)" : p.ExpiryDate.Value.ToString("dd.MM.yyyy"))
+                : "Бессрочно",
+            _Id = p.Id,
+            _IsExpired = p.ExpiryDate.HasValue && p.ExpiryDate.Value < today
         }).ToList();
 
         if (_dgvProducts.Columns.Contains("_Id"))        _dgvProducts.Columns["_Id"]!.Visible     = false;
-        if (_dgvProducts.Columns.Contains("Ед_изм"))     _dgvProducts.Columns["Ед_изм"]!.HeaderText = Strings.Catalog_ColUnit;
-        if (_dgvProducts.Columns.Contains("Цена_руб"))   _dgvProducts.Columns["Цена_руб"]!.HeaderText = Strings.Catalog_ColPrice;
-        if (_dgvProducts.Columns.Contains("Срок_годности")) _dgvProducts.Columns["Срок_годности"]!.HeaderText = Strings.Catalog_ColExpiry;
+        if (_dgvProducts.Columns.Contains("_IsExpired")) _dgvProducts.Columns["_IsExpired"]!.Visible = false;
+        if (_dgvProducts.Columns.Contains("Ед_изм"))     _dgvProducts.Columns["Ед_изм"]!.HeaderText = "Ед. изм.";
+        if (_dgvProducts.Columns.Contains("Цена"))       _dgvProducts.Columns["Цена"]!.HeaderText = $"Цена ({currencySymbol})";
+        if (_dgvProducts.Columns.Contains("Срок_годности")) _dgvProducts.Columns["Срок_годности"]!.HeaderText = "Срок годности";
 
-        _lblCount.Text = Strings.Catalog_CountLabel(list.Count);
+        _lblCount.Text = $"всего позиций: {list.Count}";
     }
 
     /// <summary>
@@ -277,7 +338,7 @@ public class CatalogForm : Form
         var id = GetSelectedId();
         if (id == null)
         {
-            MessageBox.Show(Strings.Catalog_SelectProduct, Strings.Warning,
+            MessageBox.Show("Выберите товар.", "Внимание",
                 MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
@@ -322,4 +383,6 @@ public class CatalogForm : Form
 
     private void OpenShipmentForm() { new ShipmentForm(_currentUser).ShowDialog(); LoadData(); }
     private void OpenHistoryForm()  { new HistoryForm().ShowDialog(); }
+    private void OpenSuppliesForm() { new SuppliesForm(DbConfig.ConnectionString, _currentUser.Id).ShowDialog(); LoadData(); }
+    private void OpenReportsForm()  { new ReportsForm(DbConfig.ConnectionString).ShowDialog(); }
 }

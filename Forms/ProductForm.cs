@@ -1,7 +1,6 @@
 using GreenStock.Data;
 using GreenStock.Logging;
 using GreenStock.Models;
-using GreenStock.Resources;
 using NLog;
 
 namespace GreenStock.Forms;
@@ -124,7 +123,7 @@ public class ProductForm : Form
         _nudPrice = new NumericUpDown
             { Font = new Font("Segoe UI", 10), Location = new Point(inputX, startY + 4 * rowH), Size = new Size(80, 24), Minimum = 0, Maximum = 999999, DecimalPlaces = 2 };
         var lblRub = new Label
-            { Text = Strings.Get("Product_Rub"), Font = new Font("Segoe UI", 10), Location = new Point(inputX + 86, startY + 4 * rowH + 4), AutoSize = true };
+            { Text = Strings.Product_Rub, Font = new Font("Segoe UI", 10), Location = new Point(inputX + 86, startY + 4 * rowH + 4), AutoSize = true };
 
         // ── Количество ────────────────────────────────────────
         _lblStock = MakeLabel(Strings.Product_LabelStock, 5);
@@ -138,7 +137,7 @@ public class ProductForm : Form
             BackColor = isEdit ? Color.FromArgb(220, 220, 220) : Color.White
         };
         var lblPcs = new Label
-            { Text = Strings.Get("Product_Pcs"), Font = new Font("Segoe UI", 10), Location = new Point(inputX + 66, startY + 5 * rowH + 4), AutoSize = true };
+            { Text = Strings.Product_Pcs, Font = new Font("Segoe UI", 10), Location = new Point(inputX + 66, startY + 5 * rowH + 4), AutoSize = true };
 
         // ── Срок годности ─────────────────────────────────────
         _lblExpiry = MakeLabel(Strings.Product_LabelExpiry, 6);
@@ -170,7 +169,7 @@ public class ProductForm : Form
         var btnY = startY + 7 * rowH + 28;
         _btnSave = new Button
         {
-            Text      = Strings.Get("Save"),
+            Text      = Strings.Save,
             Font      = new Font("Segoe UI", 10, FontStyle.Bold),
             Location  = new Point(160, btnY),
             Size      = new Size(100, 32),
@@ -185,7 +184,7 @@ public class ProductForm : Form
 
         _btnCancel = new Button
         {
-            Text      = Strings.Get("Cancel"),
+            Text      = Strings.Cancel,
             Font      = new Font("Segoe UI", 10),
             Location  = new Point(270, btnY),
             Size      = new Size(90, 32),

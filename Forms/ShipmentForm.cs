@@ -1,7 +1,6 @@
 using GreenStock.Data;
 using GreenStock.Logging;
 using GreenStock.Models;
-using GreenStock.Resources;
 using Microsoft.EntityFrameworkCore;
 using NLog;
 
@@ -61,58 +60,64 @@ public class ShipmentForm : Form
     {
         _currentUser = currentUser;
         InitializeComponent();
+    }
+
+    protected override void OnShown(EventArgs e)
+    {
+        base.OnShown(e);
         LoadProducts();
     }
 
     private void InitializeComponent()
     {
         Text            = Strings.Shipment_Title;
-        Size            = new Size(620, 500);
+        Size            = new Size(700, 580);
         StartPosition   = FormStartPosition.CenterParent;
         FormBorderStyle = FormBorderStyle.FixedSingle;
         MaximizeBox     = false;
-        BackColor       = Color.FromArgb(240, 240, 245);
+        BackColor       = Color.White;
 
         _lblRecipient = new Label
-            { Text = Strings.Shipment_LabelRecipient, Font = new Font("Segoe UI", 10), Location = new Point(15, 20), AutoSize = true };
+            { Text = Strings.Shipment_LabelRecipient, Font = new Font("Segoe UI", 10, FontStyle.Bold), Location = new Point(15, 15), AutoSize = true };
         _txtRecipient = new TextBox
-            { Font = new Font("Segoe UI", 10), Location = new Point(125, 17), Size = new Size(200, 24) };
+            { Font = new Font("Segoe UI", 10), Location = new Point(130, 12), Size = new Size(250, 26), BorderStyle = BorderStyle.FixedSingle };
         _lblRecipientError = new Label
         {
             Text     = Strings.RequiredField,
             Font     = new Font("Segoe UI", 8),
             ForeColor = Color.Red,
-            Location  = new Point(125, 44),
+            Location  = new Point(130, 42),
             AutoSize  = true,
             Visible   = false
         };
 
         _grpAdd = new GroupBox
-            { Text = Strings.Shipment_GroupAdd, Font = new Font("Segoe UI", 9), Location = new Point(10, 65), Size = new Size(585, 130), BackColor = Color.FromArgb(240, 240, 245) };
+            { Text = Strings.Shipment_GroupAdd, Font = new Font("Segoe UI", 10, FontStyle.Bold), Location = new Point(12, 65), Size = new Size(665, 145), BackColor = Color.White, ForeColor = Color.FromArgb(28, 42, 74) };
 
         _lblProduct = new Label
-            { Text = Strings.Shipment_LabelProduct, Font = new Font("Segoe UI", 10), Location = new Point(15, 28), AutoSize = true };
+            { Text = Strings.Shipment_LabelProduct, Font = new Font("Segoe UI", 10), Location = new Point(15, 30), AutoSize = true };
         _cmbProduct = new ComboBox
-            { Font = new Font("Segoe UI", 10), Location = new Point(80, 25), Size = new Size(280, 24), DropDownStyle = ComboBoxStyle.DropDownList };
+            { Font = new Font("Segoe UI", 10), Location = new Point(100, 27), Size = new Size(320, 26), DropDownStyle = ComboBoxStyle.DropDownList };
         _cmbProduct.SelectedIndexChanged += CmbProduct_Changed;
 
-        _lblQty            = new Label { Text = Strings.Shipment_LabelQty,       Font = new Font("Segoe UI", 10), Location = new Point(15, 65),  AutoSize = true };
-        _nudQty            = new NumericUpDown { Font = new Font("Segoe UI", 10), Location = new Point(100, 62), Size = new Size(100, 24), Minimum = 1, Maximum = 999999, Value = 1 };
+        _lblQty            = new Label { Text = Strings.Shipment_LabelQty,       Font = new Font("Segoe UI", 10), Location = new Point(440, 30),  AutoSize = true };
+        _nudQty            = new NumericUpDown { Font = new Font("Segoe UI", 10), Location = new Point(510, 27), Size = new Size(100, 26), Minimum = 1, Maximum = 999999, Value = 1 };
         _nudQty.ValueChanged += (s, e) => CheckStock();
-        _lblAvailableLabel = new Label { Text = Strings.Shipment_LabelAvailable,  Font = new Font("Segoe UI", 10), Location = new Point(210, 65), AutoSize = true };
-        _lblAvailableValue = new Label { Text = string.Empty, Font = new Font("Segoe UI", 10, FontStyle.Bold), ForeColor = Color.FromArgb(30, 100, 30), Location = new Point(370, 65), AutoSize = true };
+        _lblAvailableLabel = new Label { Text = Strings.Shipment_LabelAvailable,  Font = new Font("Segoe UI", 10), Location = new Point(15, 68), AutoSize = true };
+        _lblAvailableValue = new Label { Text = string.Empty, Font = new Font("Segoe UI", 10, FontStyle.Bold), ForeColor = Color.FromArgb(30, 100, 30), Location = new Point(100, 68), AutoSize = true };
 
         _btnAddRow = new Button
         {
             Text      = Strings.Shipment_BtnAddRow,
-            Font      = new Font("Segoe UI", 10),
-            Location  = new Point(15, 96),
-            Size      = new Size(150, 28),
+            Font      = new Font("Segoe UI", 10, FontStyle.Bold),
+            Location  = new Point(440, 60),
+            Size      = new Size(170, 35),
+            BackColor = Color.FromArgb(40, 120, 200),
+            ForeColor = Color.White,
             FlatStyle = FlatStyle.Flat,
             Cursor    = Cursors.Hand
         };
-        _btnAddRow.FlatAppearance.BorderColor = Color.Gray;
-        _btnAddRow.FlatAppearance.BorderSize  = 1;
+        _btnAddRow.FlatAppearance.BorderSize  = 0;
         _btnAddRow.Click += BtnAddRow_Click;
 
         _grpAdd.Controls.AddRange(new Control[]
@@ -120,30 +125,34 @@ public class ShipmentForm : Form
 
         _dgvItems = new DataGridView
         {
-            Location              = new Point(10, 205),
-            Size                  = new Size(585, 120),
+            Location              = new Point(12, 220),
+            Size                  = new Size(665, 200),
             ReadOnly              = true,
             AllowUserToAddRows    = false,
             AllowUserToDeleteRows = false,
             SelectionMode         = DataGridViewSelectionMode.FullRowSelect,
             BackgroundColor       = Color.White,
+            BorderStyle           = BorderStyle.Fixed3D,
             AutoSizeColumnsMode   = DataGridViewAutoSizeColumnsMode.Fill,
-            Font                  = new Font("Segoe UI", 9)
+            Font                  = new Font("Segoe UI", 9),
+            RowHeadersVisible     = false
         };
-        _dgvItems.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(220, 230, 240);
-        _dgvItems.ColumnHeadersDefaultCellStyle.Font      = new Font("Segoe UI", 9, FontStyle.Bold);
+        _dgvItems.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(28, 42, 74);
+        _dgvItems.ColumnHeadersDefaultCellStyle.ForeColor = Color.White;
+        _dgvItems.ColumnHeadersDefaultCellStyle.Font      = new Font("Segoe UI", 10, FontStyle.Bold);
         _dgvItems.EnableHeadersVisualStyles = false;
+        _dgvItems.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(245, 245, 250);
 
         _lblWarning = new Label
-            { Text = string.Empty, ForeColor = Color.Red, Font = new Font("Segoe UI", 9), Location = new Point(10, 332), Size = new Size(500, 18) };
+            { Text = string.Empty, ForeColor = Color.Red, Font = new Font("Segoe UI", 10, FontStyle.Bold), Location = new Point(12, 427), Size = new Size(500, 25) };
 
         _btnConfirm = new Button
         {
             Text      = Strings.Shipment_BtnConfirm,
             Font      = new Font("Segoe UI", 10, FontStyle.Bold),
-            Location  = new Point(385, 355),
-            Size      = new Size(120, 34),
-            BackColor = Color.FromArgb(28, 42, 74),
+            Location  = new Point(470, 490),
+            Size      = new Size(135, 38),
+            BackColor = Color.FromArgb(50, 150, 50),
             ForeColor = Color.White,
             FlatStyle = FlatStyle.Flat,
             Cursor    = Cursors.Hand
@@ -153,13 +162,16 @@ public class ShipmentForm : Form
 
         _btnCancel = new Button
         {
-            Text      = Strings.Get("Cancel"),
-            Font      = new Font("Segoe UI", 10),
-            Location  = new Point(515, 355),
-            Size      = new Size(80, 34),
+            Text      = Strings.Cancel,
+            Font      = new Font("Segoe UI", 10, FontStyle.Bold),
+            Location  = new Point(615, 490),
+            Size      = new Size(62, 38),
+            BackColor = Color.FromArgb(200, 50, 50),
+            ForeColor = Color.White,
             FlatStyle = FlatStyle.Flat,
             Cursor    = Cursors.Hand
         };
+        _btnCancel.FlatAppearance.BorderSize = 0;
         _btnCancel.Click += (s, e) => { DialogResult = DialogResult.Cancel; Close(); };
 
         Controls.AddRange(new Control[]
@@ -173,7 +185,12 @@ public class ShipmentForm : Form
     private void LoadProducts()
     {
         using var db = new AppDbContext();
-        _products = db.Products.Include(p => p.Category).OrderBy(p => p.Name).ToList();
+        var today = DateOnly.FromDateTime(DateTime.Now);
+        _products = db.Products
+            .Include(p => p.Category)
+            .Where(p => p.ExpiryDate == null || p.ExpiryDate > today)
+            .OrderBy(p => p.Name)
+            .ToList();
         _cmbProduct.Items.Clear();
         foreach (var p in _products) _cmbProduct.Items.Add($"{p.Article} — {p.Name}");
         if (_cmbProduct.Items.Count > 0) _cmbProduct.SelectedIndex = 0;
@@ -302,13 +319,14 @@ public class ShipmentForm : Form
 
             foreach (var row in _rows)
             {
+                var product = db.Products.Find(row.ProductId)!;
                 db.ShipmentItems.Add(new ShipmentItem
                 {
                     ShipmentId = shipment.Id,
                     ProductId  = row.ProductId,
-                    Quantity   = row.Quantity
+                    Quantity   = row.Quantity,
+                    Price      = product.PurchasePrice
                 });
-                var product = db.Products.Find(row.ProductId)!;
                 product.Stock -= row.Quantity;
             }
             db.SaveChanges();

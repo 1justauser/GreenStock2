@@ -35,6 +35,12 @@ public class ShipmentItem
     public int Quantity { get; set; }
 
     /// <summary>
+    /// Цена товара в момент отгрузки.
+    /// </summary>
+    [Column("price")]
+    public decimal Price { get; set; }
+
+    /// <summary>
     /// Отгрузка, к которой относится позиция.
     /// </summary>
     public Shipment Shipment { get; set; } = null!;
