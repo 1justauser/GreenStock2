@@ -1,3 +1,4 @@
+using GreenStock;
 using GreenStock.Data;
 using GreenStock.Logging;
 using GreenStock.Models;
@@ -51,6 +52,8 @@ public class CatalogForm : Form
         _currentUser = currentUser;
         InitializeComponent();
         ApplyRolePermissions();
+        // Сначала списываем просроченные товары, потом загружаем каталог
+        WriteOffExpiredProducts();
         LoadData();
     }
 
@@ -261,19 +264,53 @@ public class CatalogForm : Form
     }
 
     /// <summary>
-    /// Обработчик форматирования ячеек: конвертирует цены в выбранную валюту и выделяет истёкшие товары.
+    /// Автоматически списывает просроченные товары при открытии каталога.
+    /// Уменьшает stock до 0 и записывает факт в лог.
+    /// </summary>
+    private void WriteOffExpiredProducts()
+    {
+        try
+        {
+            using var db  = new AppDbContext();
+            var today     = DateOnly.FromDateTime(DateTime.Today);
+            var expired   = db.Products
+                .Where(p => p.ExpiryDate.HasValue && p.ExpiryDate.Value < today && p.Stock > 0)
+                .ToList();
+
+            if (expired.Count == 0) return;
+
+            var lines = new System.Text.StringBuilder();
+            foreach (var p in expired)
+            {
+                _log.Info("Автосписание: {0} ({1}), кол-во {2}, срок истёк {3}",
+                    p.Article, p.Name, p.Stock, p.ExpiryDate);
+                lines.AppendLine($"• {p.Article} — {p.Name}: {p.Stock} {p.Unit}  (срок: {p.ExpiryDate:dd.MM.yyyy})");
+                p.Stock = 0;
+            }
+            db.SaveChanges();
+
+            MessageBox.Show(
+                $"⚠ Автоматически списаны просроченные товары ({expired.Count} позиций):\n\n{lines}",
+                "Списание просрочки", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+        catch (Exception ex)
+        {
+            _log.Error(ex, "Ошибка автосписания просроченных товаров");
+        }
+    }
+
+    /// <summary>
+    /// Обработчик форматирования: выделяет жёлтым товары с истекающим сроком (≤30 дней).
+    /// Просроченные уже списаны и не отображаются.
     /// </summary>
     private void DgvProducts_CellFormatting(object sender, DataGridViewCellFormattingEventArgs e)
     {
-        if (_dgvProducts.DataSource == null) return;
-
-        var row = _dgvProducts.Rows[e.RowIndex];
+        if (_dgvProducts.DataSource == null || e.RowIndex < 0) return;
         var rowData = (dynamic?)_dgvProducts.Rows[e.RowIndex].DataBoundItem;
-
-        if (rowData != null && rowData._IsExpired)
+        if (rowData != null && rowData._NearExpiry)
         {
-            e.CellStyle.BackColor = Color.FromArgb(255, 200, 200);
-            e.CellStyle.ForeColor = Color.FromArgb(139, 0, 0);
+            e.CellStyle.BackColor = Color.FromArgb(255, 240, 160);
+            e.CellStyle.ForeColor = Color.FromArgb(100, 60, 0);
         }
     }
 
@@ -281,9 +318,14 @@ public class CatalogForm : Form
     {
         var search   = _txtSearch.Text.Trim().ToLower();
         var category = _cmbCategory.SelectedItem?.ToString() ?? "Все";
-        var today    = DateOnly.FromDateTime(DateTime.Now);
+        var today    = DateOnly.FromDateTime(DateTime.Today);
+        var warnDate = today.AddDays(30);
 
         var filtered = _allProducts.AsEnumerable();
+
+        // Исключаем просроченные из показа (они уже списаны)
+        filtered = filtered.Where(p => p.ExpiryDate == null || p.ExpiryDate >= today);
+
         if (!string.IsNullOrEmpty(search))
             filtered = filtered.Where(p =>
                 p.Article.ToLower().Contains(search) ||
@@ -293,26 +335,36 @@ public class CatalogForm : Form
 
         var list = filtered.ToList();
         var currencySymbol = CurrencyService.GetSymbol(CurrencyService.CurrentCurrency);
-        _dgvProducts.DataSource = list.Select(p => new
+
+        _dgvProducts.DataSource = list.Select(p =>
         {
-            Артикул       = p.Article,
-            Название      = p.Name,
-            Категория     = p.Category.Name,
-            Ед_изм        = p.Unit,
-            Цена          = CurrencyService.Format(CurrencyService.Convert(p.PurchasePrice, Currency.RUB, CurrencyService.CurrentCurrency)),
-            Остаток       = p.Stock,
-            Срок_годности = p.ExpiryDate.HasValue
-                ? (p.ExpiryDate.Value < today ? $"{p.ExpiryDate.Value:dd.MM.yyyy} (ИСТЁК)" : p.ExpiryDate.Value.ToString("dd.MM.yyyy"))
-                : "Бессрочно",
-            _Id = p.Id,
-            _IsExpired = p.ExpiryDate.HasValue && p.ExpiryDate.Value < today
+            bool nearExpiry = p.ExpiryDate.HasValue && p.ExpiryDate.Value <= warnDate;
+            string expiryText = p.ExpiryDate.HasValue
+                ? (nearExpiry
+                    ? $"⚠ {p.ExpiryDate.Value:dd.MM.yyyy} (скоро истечёт!)"
+                    : p.ExpiryDate.Value.ToString("dd.MM.yyyy"))
+                : "Бессрочно";
+
+            return new
+            {
+                Артикул       = p.Article,
+                Название      = p.Name,
+                Категория     = p.Category.Name,
+                Ед_изм        = p.Unit,
+                Цена          = CurrencyService.Format(CurrencyService.Convert(
+                                    p.PurchasePrice, Currency.RUB, CurrencyService.CurrentCurrency)),
+                Остаток       = p.Stock,
+                Срок_годности = expiryText,
+                _Id           = p.Id,
+                _NearExpiry   = nearExpiry
+            };
         }).ToList();
 
-        if (_dgvProducts.Columns.Contains("_Id"))        _dgvProducts.Columns["_Id"]!.Visible     = false;
-        if (_dgvProducts.Columns.Contains("_IsExpired")) _dgvProducts.Columns["_IsExpired"]!.Visible = false;
-        if (_dgvProducts.Columns.Contains("Ед_изм"))     _dgvProducts.Columns["Ед_изм"]!.HeaderText = "Ед. изм.";
-        if (_dgvProducts.Columns.Contains("Цена"))       _dgvProducts.Columns["Цена"]!.HeaderText = $"Цена ({currencySymbol})";
-        if (_dgvProducts.Columns.Contains("Срок_годности")) _dgvProducts.Columns["Срок_годности"]!.HeaderText = "Срок годности";
+        if (_dgvProducts.Columns.Contains("_Id"))          _dgvProducts.Columns["_Id"]!.Visible          = false;
+        if (_dgvProducts.Columns.Contains("_NearExpiry"))  _dgvProducts.Columns["_NearExpiry"]!.Visible  = false;
+        if (_dgvProducts.Columns.Contains("Ед_изм"))       _dgvProducts.Columns["Ед_изм"]!.HeaderText    = "Ед. изм.";
+        if (_dgvProducts.Columns.Contains("Цена"))         _dgvProducts.Columns["Цена"]!.HeaderText       = $"Цена ({currencySymbol})";
+        if (_dgvProducts.Columns.Contains("Срок_годности"))_dgvProducts.Columns["Срок_годности"]!.HeaderText = "Срок годности";
 
         _lblCount.Text = $"всего позиций: {list.Count}";
     }

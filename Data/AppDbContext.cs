@@ -111,6 +111,7 @@ public class AppDbContext : DbContext
             e.Property(p => p.Id).HasColumnType("uuid").ValueGeneratedOnAdd();
             e.Property(p => p.CategoryId).HasColumnType("uuid");
             e.Property(p => p.ExpiryDate).HasColumnName("expiry_date").IsRequired(false);
+            e.Property(p => p.SellingPrice).HasColumnName("selling_price").HasDefaultValue(0m);
         });
 
         // ── Shipment ──────────────────────────────────────────────────────────
@@ -133,6 +134,7 @@ public class AppDbContext : DbContext
             e.Property(i => i.Id).HasColumnType("uuid").ValueGeneratedOnAdd();
             e.Property(i => i.ShipmentId).HasColumnType("uuid");
             e.Property(i => i.ProductId).HasColumnType("uuid");
+            e.Property(i => i.Price).HasColumnName("price").HasDefaultValue(0m);
         });
     }
 }

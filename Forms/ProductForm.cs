@@ -1,3 +1,4 @@
+using GreenStock;
 using GreenStock.Data;
 using GreenStock.Logging;
 using GreenStock.Models;
@@ -7,6 +8,7 @@ namespace GreenStock.Forms;
 
 /// <summary>
 /// Форма добавления или редактирования товара.
+/// Добавлено поле "Цена продажи" для корректного расчёта прибыли в отчётах.
 /// </summary>
 public class ProductForm : Form
 {
@@ -14,30 +16,29 @@ public class ProductForm : Form
 
     private readonly Product? _existing;
 
-    private Label         _lblArticle      = null!;
-    private Label         _lblName         = null!;
-    private Label         _lblCategory     = null!;
-    private Label         _lblUnit         = null!;
-    private Label         _lblPrice        = null!;
-    private Label         _lblStock        = null!;
-    private Label         _lblExpiry       = null!;
-    private TextBox       _txtArticle      = null!;
-    private TextBox       _txtName         = null!;
-    private TextBox       _txtStock        = null!;
-    private ComboBox      _cmbCategory     = null!;
-    private ComboBox      _cmbUnit         = null!;
-    private NumericUpDown _nudPrice        = null!;
-    private DateTimePicker _dtpExpiry      = null!;
-    private CheckBox      _chkNoExpiry     = null!;
-    private Label         _lblArticleError = null!;
-    private Label         _lblNameError    = null!;
-    private Button        _btnSave         = null!;
-    private Button        _btnCancel       = null!;
+    private Label         _lblArticle       = null!;
+    private Label         _lblName          = null!;
+    private Label         _lblCategory      = null!;
+    private Label         _lblUnit          = null!;
+    private Label         _lblBuyPrice      = null!;
+    private Label         _lblSellPrice     = null!;
+    private Label         _lblStock         = null!;
+    private Label         _lblExpiry        = null!;
+    private TextBox       _txtArticle       = null!;
+    private TextBox       _txtName          = null!;
+    private TextBox       _txtStock         = null!;
+    private ComboBox      _cmbCategory      = null!;
+    private ComboBox      _cmbUnit          = null!;
+    private NumericUpDown _nudBuyPrice      = null!;
+    private NumericUpDown _nudSellPrice     = null!;
+    private DateTimePicker _dtpExpiry       = null!;
+    private CheckBox      _chkNoExpiry      = null!;
+    private Label         _lblArticleError  = null!;
+    private Label         _lblNameError     = null!;
+    private Label         _lblSellPriceHint = null!;
+    private Button        _btnSave          = null!;
+    private Button        _btnCancel        = null!;
 
-    /// <summary>
-    /// Инициализирует форму.
-    /// </summary>
-    /// <param name="existing">Существующий товар для редактирования, или <c>null</c> для добавления.</param>
     public ProductForm(Product? existing)
     {
         _existing = existing;
@@ -51,7 +52,8 @@ public class ProductForm : Form
         var isEdit = _existing != null;
 
         Text            = isEdit ? Strings.Product_TitleEdit : Strings.Product_TitleAdd;
-        Size            = new Size(400, 470);
+        // Высота увеличена: добавлена строка "Цена продажи"
+        Size            = new Size(420, 530);
         StartPosition   = FormStartPosition.CenterParent;
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox     = false;
@@ -61,8 +63,8 @@ public class ProductForm : Form
         const int labelX = 30;
         const int inputX = 165;
         const int inputW = 185;
-        const int rowH   = 50;
-        const int startY = 20;
+        const int rowH   = 48;
+        const int startY = 18;
 
         Label MakeLabel(string text, int row) => new Label
         {
@@ -72,7 +74,7 @@ public class ProductForm : Form
             AutoSize = true
         };
 
-        // ── Артикул ───────────────────────────────────────────
+        // ── Артикул ──────────────────── row 0
         _lblArticle = MakeLabel(Strings.Product_LabelArticle, 0);
         _txtArticle = new TextBox
         {
@@ -84,67 +86,82 @@ public class ProductForm : Form
         };
         _lblArticleError = new Label
         {
-            Text     = Strings.Product_ErrArticleExists,
-            Font     = new Font("Segoe UI", 8),
+            Text      = Strings.Product_ErrArticleExists,
+            Font      = new Font("Segoe UI", 8),
             ForeColor = Color.Red,
             Location  = new Point(inputX, startY + 0 * rowH + 26),
             AutoSize  = true,
             Visible   = false
         };
 
-        // ── Название ──────────────────────────────────────────
+        // ── Название ─────────────────── row 1
         _lblName = MakeLabel(Strings.Product_LabelName, 1);
         _txtName = new TextBox
             { Font = new Font("Segoe UI", 10), Location = new Point(inputX, startY + 1 * rowH), Size = new Size(inputW, 24) };
         _lblNameError = new Label
         {
-            Text     = Strings.RequiredField,
-            Font     = new Font("Segoe UI", 8),
+            Text      = Strings.RequiredField,
+            Font      = new Font("Segoe UI", 8),
             ForeColor = Color.Red,
             Location  = new Point(inputX, startY + 1 * rowH + 26),
             AutoSize  = true,
             Visible   = false
         };
 
-        // ── Категория ─────────────────────────────────────────
+        // ── Категория ────────────────── row 2
         _lblCategory = MakeLabel(Strings.Product_LabelCategory, 2);
         _cmbCategory = new ComboBox
             { Font = new Font("Segoe UI", 10), Location = new Point(inputX, startY + 2 * rowH), Size = new Size(inputW, 24), DropDownStyle = ComboBoxStyle.DropDownList };
 
-        // ── Единица измерения ─────────────────────────────────
+        // ── Единица измерения ─────────── row 3
         _lblUnit = MakeLabel(Strings.Product_LabelUnit, 3);
         _cmbUnit = new ComboBox
             { Font = new Font("Segoe UI", 10), Location = new Point(inputX, startY + 3 * rowH), Size = new Size(100, 24), DropDownStyle = ComboBoxStyle.DropDownList };
         _cmbUnit.Items.AddRange(new[] { "шт", "пак", "кг", "л", "г" });
         _cmbUnit.SelectedIndex = 0;
 
-        // ── Цена закупки ──────────────────────────────────────
-        _lblPrice = MakeLabel(Strings.Product_LabelPrice, 4);
-        _nudPrice = new NumericUpDown
-            { Font = new Font("Segoe UI", 10), Location = new Point(inputX, startY + 4 * rowH), Size = new Size(80, 24), Minimum = 0, Maximum = 999999, DecimalPlaces = 2 };
-        var lblRub = new Label
-            { Text = Strings.Product_Rub, Font = new Font("Segoe UI", 10), Location = new Point(inputX + 86, startY + 4 * rowH + 4), AutoSize = true };
+        // ── Цена закупки ─────────────── row 4
+        _lblBuyPrice = MakeLabel(Strings.Product_LabelPrice, 4);
+        _nudBuyPrice = new NumericUpDown
+            { Font = new Font("Segoe UI", 10), Location = new Point(inputX, startY + 4 * rowH), Size = new Size(90, 24), Minimum = 0, Maximum = 9999999, DecimalPlaces = 2 };
+        var lblRub1 = new Label
+            { Text = "₽", Font = new Font("Segoe UI", 10), Location = new Point(inputX + 96, startY + 4 * rowH + 4), AutoSize = true };
 
-        // ── Количество ────────────────────────────────────────
-        _lblStock = MakeLabel(Strings.Product_LabelStock, 5);
+        // ── Цена продажи ─────────────── row 5  (НОВОЕ)
+        _lblSellPrice = MakeLabel("Цена продажи*:", 5);
+        _nudSellPrice = new NumericUpDown
+            { Font = new Font("Segoe UI", 10), Location = new Point(inputX, startY + 5 * rowH), Size = new Size(90, 24), Minimum = 0, Maximum = 9999999, DecimalPlaces = 2 };
+        var lblRub2 = new Label
+            { Text = "₽", Font = new Font("Segoe UI", 10), Location = new Point(inputX + 96, startY + 5 * rowH + 4), AutoSize = true };
+        _lblSellPriceHint = new Label
+        {
+            Text      = "используется для расчёта прибыли",
+            Font      = new Font("Segoe UI", 7),
+            ForeColor = Color.Gray,
+            Location  = new Point(inputX, startY + 5 * rowH + 27),
+            AutoSize  = true
+        };
+
+        // ── Количество ───────────────── row 6
+        _lblStock = MakeLabel(Strings.Product_LabelStock, 6);
         _txtStock = new TextBox
         {
             Font      = new Font("Segoe UI", 10),
-            Location  = new Point(inputX, startY + 5 * rowH),
+            Location  = new Point(inputX, startY + 6 * rowH),
             Size      = new Size(60, 24),
             Text      = isEdit ? _existing!.Stock.ToString() : "0",
             ReadOnly  = isEdit,
             BackColor = isEdit ? Color.FromArgb(220, 220, 220) : Color.White
         };
         var lblPcs = new Label
-            { Text = Strings.Product_Pcs, Font = new Font("Segoe UI", 10), Location = new Point(inputX + 66, startY + 5 * rowH + 4), AutoSize = true };
+            { Text = "шт.", Font = new Font("Segoe UI", 10), Location = new Point(inputX + 66, startY + 6 * rowH + 4), AutoSize = true };
 
-        // ── Срок годности ─────────────────────────────────────
-        _lblExpiry = MakeLabel(Strings.Product_LabelExpiry, 6);
+        // ── Срок годности ─────────────── row 7
+        _lblExpiry = MakeLabel(Strings.Product_LabelExpiry, 7);
         _dtpExpiry = new DateTimePicker
         {
             Font     = new Font("Segoe UI", 10),
-            Location = new Point(inputX, startY + 6 * rowH),
+            Location = new Point(inputX, startY + 7 * rowH),
             Size     = new Size(130, 24),
             Format   = DateTimePickerFormat.Short
         };
@@ -152,27 +169,28 @@ public class ProductForm : Form
         {
             Text     = Strings.Product_ChkNoExpiry,
             Font     = new Font("Segoe UI", 10),
-            Location = new Point(inputX + 140, startY + 6 * rowH + 3),
+            Location = new Point(inputX + 140, startY + 7 * rowH + 3),
             AutoSize = true
         };
         _chkNoExpiry.CheckedChanged += (s, e) => _dtpExpiry.Enabled = !_chkNoExpiry.Checked;
 
+        // ── Подсказка и кнопки ────────────────────────────────
         var lblRequired = new Label
         {
             Text      = Strings.Product_RequiredHint,
             Font      = new Font("Segoe UI", 8),
             ForeColor = Color.Gray,
-            Location  = new Point(labelX, startY + 7 * rowH + 5),
+            Location  = new Point(labelX, startY + 8 * rowH + 4),
             AutoSize  = true
         };
 
-        var btnY = startY + 7 * rowH + 28;
+        var btnY = startY + 8 * rowH + 26;
         _btnSave = new Button
         {
             Text      = Strings.Save,
             Font      = new Font("Segoe UI", 10, FontStyle.Bold),
-            Location  = new Point(160, btnY),
-            Size      = new Size(100, 32),
+            Location  = new Point(155, btnY),
+            Size      = new Size(110, 32),
             BackColor = Color.FromArgb(28, 42, 74),
             ForeColor = Color.White,
             FlatStyle = FlatStyle.Flat,
@@ -186,8 +204,8 @@ public class ProductForm : Form
         {
             Text      = Strings.Cancel,
             Font      = new Font("Segoe UI", 10),
-            Location  = new Point(270, btnY),
-            Size      = new Size(90, 32),
+            Location  = new Point(275, btnY),
+            Size      = new Size(100, 32),
             FlatStyle = FlatStyle.Flat,
             Cursor    = Cursors.Hand
         };
@@ -196,14 +214,15 @@ public class ProductForm : Form
 
         Controls.AddRange(new Control[]
         {
-            _lblArticle, _txtArticle, _lblArticleError,
-            _lblName, _txtName, _lblNameError,
-            _lblCategory, _cmbCategory,
-            _lblUnit, _cmbUnit,
-            _lblPrice, _nudPrice, lblRub,
-            _lblStock, _txtStock, lblPcs,
-            _lblExpiry, _dtpExpiry, _chkNoExpiry,
-            lblRequired, _btnSave, _btnCancel
+            _lblArticle,   _txtArticle,   _lblArticleError,
+            _lblName,      _txtName,      _lblNameError,
+            _lblCategory,  _cmbCategory,
+            _lblUnit,      _cmbUnit,
+            _lblBuyPrice,  _nudBuyPrice,  lblRub1,
+            _lblSellPrice, _nudSellPrice, lblRub2, _lblSellPriceHint,
+            _lblStock,     _txtStock,     lblPcs,
+            _lblExpiry,    _dtpExpiry,    _chkNoExpiry,
+            lblRequired,   _btnSave,      _btnCancel
         });
     }
 
@@ -218,12 +237,15 @@ public class ProductForm : Form
 
     private void FillFields()
     {
-        _txtArticle.Text  = _existing!.Article;
-        _txtName.Text     = _existing.Name;
-        _cmbCategory.Text = _existing.Category?.Name ?? string.Empty;
-        _cmbUnit.Text     = _existing.Unit;
-        _nudPrice.Value   = _existing.PurchasePrice;
-        _txtStock.Text    = _existing.Stock.ToString();
+        _txtArticle.Text   = _existing!.Article;
+        _txtName.Text      = _existing.Name;
+        _cmbCategory.Text  = _existing.Category?.Name ?? string.Empty;
+        _cmbUnit.Text      = _existing.Unit;
+        _nudBuyPrice.Value = _existing.PurchasePrice;
+        _nudSellPrice.Value = _existing.SellingPrice > 0
+            ? _existing.SellingPrice
+            : Math.Round(_existing.PurchasePrice * 1.3m, 2); // авто-подсказка +30%
+        _txtStock.Text     = _existing.Stock.ToString();
 
         if (_existing.ExpiryDate.HasValue)
             _dtpExpiry.Value = _existing.ExpiryDate.Value.ToDateTime(TimeOnly.MinValue);
@@ -256,7 +278,6 @@ public class ProductForm : Form
         if (string.IsNullOrWhiteSpace(_txtName.Text))
         {
             SetFieldError(_txtName, true);
-            _lblNameError.Text    = Strings.RequiredField;
             _lblNameError.Visible = true;
             valid = false;
         }
@@ -290,7 +311,8 @@ public class ProductForm : Form
                     Name          = _txtName.Text.Trim(),
                     CategoryId    = category.Id,
                     Unit          = _cmbUnit.SelectedItem!.ToString()!,
-                    PurchasePrice = _nudPrice.Value,
+                    PurchasePrice = _nudBuyPrice.Value,
+                    SellingPrice  = _nudSellPrice.Value,
                     Stock         = int.TryParse(_txtStock.Text, out var stock) ? stock : 0,
                     ExpiryDate    = expiry
                 });
@@ -303,7 +325,8 @@ public class ProductForm : Form
                 p.Name          = _txtName.Text.Trim();
                 p.CategoryId    = category.Id;
                 p.Unit          = _cmbUnit.SelectedItem!.ToString()!;
-                p.PurchasePrice = _nudPrice.Value;
+                p.PurchasePrice = _nudBuyPrice.Value;
+                p.SellingPrice  = _nudSellPrice.Value;
                 p.ExpiryDate    = expiry;
                 _log.Info("Обновлён товар: {0}", p.Article);
             }

@@ -65,7 +65,8 @@ public static class HistoryService
                 CreatedBy = s.CreatedByUser?.Login ?? "—",
                 Recipient = s.Recipient,
                 ItemCount = s.Items.Count,
-                TotalAmount = s.Items.Sum(si => (decimal)si.Quantity * si.Product.PurchasePrice)
+                // Используем Price позиции (цена продажи на момент отгрузки), а не PurchasePrice
+                TotalAmount = s.Items.Sum(si => (decimal)si.Quantity * si.Price)
             }).ToList();
 
             _log.Debug("Получено {0} отгрузок", result.Count);
@@ -105,8 +106,8 @@ public static class HistoryService
                 ProductName = si.Product.Name,
                 Quantity = si.Quantity,
                 Unit = si.Product.Unit,
-                Price = si.Product.PurchasePrice,
-                Total = (decimal)si.Quantity * si.Product.PurchasePrice
+                Price = si.Price,  // цена продажи в момент отгрузки
+                Total = (decimal)si.Quantity * si.Price
             }).ToList();
 
             _log.Debug("Получено {0} позиций для отгрузки {1}", result.Count, shipmentId);

@@ -47,6 +47,12 @@ public class Product
     public decimal PurchasePrice { get; set; }
 
     /// <summary>
+    /// Цена продажи (используется для расчёта прибыли в отчётах).
+    /// </summary>
+    [Column("selling_price")]
+    public decimal SellingPrice { get; set; }
+
+    /// <summary>
     /// Остаток на складе.
     /// </summary>
     [Column("stock")]
