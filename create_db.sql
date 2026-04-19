@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS products (
     category_id    UUID           NOT NULL REFERENCES categories(id),
     unit           VARCHAR(20)    NOT NULL,  -- шт, пак, кг, л, г
     purchase_price NUMERIC(10, 2) NOT NULL DEFAULT 0,
+    selling_price  NUMERIC(10, 2) NOT NULL DEFAULT 0,  -- цена продажи (для расчёта прибыли)
     stock          INT            NOT NULL DEFAULT 0,
     expiry_date    DATE           NULL       -- NULL = бессрочный товар
 );
@@ -47,6 +48,25 @@ CREATE TABLE IF NOT EXISTS shipment_items (
     price       NUMERIC(10, 2)  NOT NULL DEFAULT 0
 );
 
+-- Партии товаров (для отслеживания сроков годности по партиям)
+CREATE TABLE IF NOT EXISTS stock_batches (
+    id             UUID           PRIMARY KEY DEFAULT gen_random_uuid(),
+    product_id     UUID           NOT NULL REFERENCES products(id),
+    quantity       INT            NOT NULL DEFAULT 0,
+    purchase_price NUMERIC(10, 2) NOT NULL DEFAULT 0,
+    expiry_date    DATE           NULL,
+    created_at     TIMESTAMP      NOT NULL DEFAULT NOW()
+);
+
+-- Списания просроченных партий
+CREATE TABLE IF NOT EXISTS write_offs (
+    id         UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    batch_id   UUID         NOT NULL REFERENCES stock_batches(id),
+    quantity   INT          NOT NULL,
+    reason     VARCHAR(255) NOT NULL DEFAULT 'Срок годности истёк',
+    created_at TIMESTAMP    NOT NULL DEFAULT NOW()
+);
+
 -- ============================================================
 -- 3. Seed data
 -- ============================================================
@@ -56,7 +76,7 @@ CREATE TABLE IF NOT EXISTS shipment_items (
 --   sklad1  → Pass1234
 INSERT INTO users (login, password_hash, role) VALUES
     ('admin',  '$2a$12$jU2OuZ9ltQMXVhotKKxhUelfjOH7fAiX9f8BwlbMKFpBl049CH/qO', 'Admin'),
-    ('sklad1', '$2a$12$QSszhKjyCS9209YcIkb7g.UXiW/ZB5oXIhIgcbTfu2PmOeCF0Lhx2', 'Kladovshik')
+    ('sklad1', '$2a$11$PW4eh3adCFzsumNXlU/.j.MoJNK5dfbbLjC0V0GQRMxt1V/3VukLG', 'Kladovshik')
 ON CONFLICT (login) DO NOTHING;
 
 -- Categories
